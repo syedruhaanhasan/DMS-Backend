@@ -1,0 +1,274 @@
+PHASE 1 — Core Foundation & Approval Engine (MVP Backbone)
+
+You are acting as a senior backend architect and engineer. Build the foundational backend for the Workflow-Based Document Approval System (WDAS) — an enterprise platform that digitizes creation, routing, review, and approval of internal documents across departments.
+
+This phase delivers the minimum backbone that a document can flow through end-to-end: identity, workflow configuration, document creation, and the approval engine itself. Nothing else works without this phase being correct.
+
+Non-Negotiable Architectural Principles (apply to all 3 phases)
+
+
+Single Workflow Engine API — Approve/Reject/Return/Cancel/Finalize/Comment are each exposed once and invoked identically by every client (Web now, Mobile in Phase 3). Never let a client encode business rules.
+AD is the identity source of truth. The app DB stores only role mappings and workflow metadata, refreshed via scheduled + on-demand AD sync (LDAP/LDAPS, optionally ADFS/SAML/Azure AD Connect). Roles: Super Admin, Department Admin, Maker/Owner, Approver, Auditor, IT Admin.
+Server-side enforcement of everything. Sequential-approval visibility, role-based access, amount-band resolution, finalization immutability — enforced at the API/data layer, never trusted from the client.
+Workflow configuration is versioned. Editing a workflow creates a new version; in-flight documents keep executing against the version active at their submission time.
+Server-generated timestamps only for every workflow action.
+Independently scalable services — Workflow Engine, Document Service, Notification Service should be cleanly bounded modules, not a tangled monolith, even if deployed together initially.
+
+
+Suggested Technology Stack
+
+LayerRecommendationAPI / ApplicationASP.NET Core Web API (C#), REST/JSON — or your specified equivalent stackWorkflow EngineConfiguration-driven rules/state-machine (e.g., Elsa Workflows for .NET, or custom state machine)DatabaseMicrosoft SQL Server (on-prem), normalized schemaIdentityOn-prem AD via LDAP/LDAPS; optional ADFS/SAML/Azure AD Connect for hybrid SSO
+
+Modules to Build in This Phase
+
+M1 — Identity & Access Management (AD/LDAP Integration)
+
+
+Authenticate against AD/LDAP; issue signed session/JWT carrying AD ID, role(s), department.
+Scheduled + on-demand directory sync (users, departments, titles, manager/reporting line, security groups) into a local cache.
+Map application roles onto AD identities (AD = who; app = what they can do).
+Auto-disable app accounts when AD disables the user, with a configurable grace window for users mid-approval-step.
+Fall back to last-known-good local cache if live AD is unreachable; alert on sync failure.
+Endpoints: POST /api/auth/login, POST /api/auth/sync, GET /api/users, GET /api/departments.
+
+
+M2 — Department & Workflow Configuration Service
+
+
+CRUD for named, versioned workflows per department: document type, default recipients, approval mode (matrix/group/ad-hoc/hybrid), SLA/escalation rules, notification settings.
+Department Admins scoped to their own department; Super Admin can act on any department.
+Versioning: edits create a new version; in-flight documents stay bound to their original version.
+Draft / Test-Preview / Active states — only Active versions selectable at document-creation time.
+Endpoints: GET/POST/PUT /api/workflows, GET /api/workflows/{id}/versions.
+
+
+M3 — Approval Matrix / Mode Configuration Service
+
+
+Amount-based matrix: unlimited configurable bands (min/max) → sequential approver group(s). Validate no overlaps/gaps at save time.
+Group-based sequential: named approver groups in fixed order, with a per-group "any one member" vs "all members must approve" setting.
+Ad-hoc: Owner manually selects individual AD approvers, in order, at document creation.
+Hybrid: fixed matrix/group stage(s) followed by one ad-hoc Owner-selected approver.
+At submission, materialize the resolved chain as immutable WorkflowStep records bound to that document + workflow version.
+Endpoints: GET/POST /api/workflows/{id}/matrix-tiers, GET/POST /api/workflows/{id}/approver-groups.
+
+
+M6 — Document Creation & Content Service
+
+
+Header fields: To, server-resolved non-editable From, Subject, Document Type/Workflow, conditional Amount, Priority (Normal/Urgent/Critical).
+Store rich-text body in structured HTML/JSON, reliably renderable to PDF later.
+Auto-save drafts at intervals; drafts visible/editable by Owner only, never enter any approver queue.
+Submit: lock body, resolve chain (via M3), materialize steps, route to first approver/tier. Must be idempotent (no double-submit).
+Endpoints: POST /api/documents (draft/submit), GET/PUT /api/documents/{id}.
+
+
+M8 — Approval Workflow Engine (core module — build this with the most rigor)
+
+
+Approvers always see an immutable, read-only rendering of the submitted document.
+Sequential visibility enforced server-side: an approver cannot see/act on a document until all prior required approvals in the chain are complete.
+Approve → route to next step, or mark ready-for-finalization if last step (finalization itself is built in Phase 2).
+Reject → stop workflow immediately, record reason, return to Owner. No further steps process.
+Return for Correction → back to Owner for edits without being a full reject; on resubmit, resume per configured policy (restart from Approver 1, or resume after the returning step), with prior approvals optionally marked "re-confirmation required."
+Capture optional comment per approver action, visible to subsequent approvers.
+SLA/escalation timer per step (configurable threshold) → flag breach (notification dispatch itself is built in Phase 2).
+Endpoints: POST /api/workflow-steps/{id}/approve|reject|return|comment.
+
+
+Minimum Data Model for This Phase
+
+User, Department, Workflow, ApprovalMatrixTier, ApproverGroup, ApproverGroupMember, Document, DocumentRecipient, WorkflowStep, WorkflowStepAction.
+
+What I Want You To Do in Phase 1
+
+
+Propose a concrete project/folder structure and confirm the tech stack.
+Design the relational schema for the entities above, with migration scripts.
+Build M1 (Identity) first — nothing else can be tested without login/roles working.
+Build M2/M3 (Workflow + Matrix Config) next.
+Build M6 (Document Creation) and M8 (Workflow Engine) last in this phase, since M8 depends on M3's resolved chain and is the system's core — treat it as the most heavily tested component (unit + integration tests for amount-band resolution, sequential visibility, approve/reject/return semantics, chain immutability once materialized).
+Write the OpenAPI/Swagger spec for every endpoint above as you build it.
+Flag any ambiguity before implementing — particularly the default "Return for Correction" resume policy and default SLA timings.
+Stop at the end of this phase and confirm with me that a document can be created, submitted, and moved through a multi-step approval chain (approve/reject/return) correctly before I hand you Phase 2.
+
+
+
+
+PHASE 2 — Full Approval Lifecycle, External Access & Notifications
+
+(Prerequisite: Phase 1 backbone — Identity, Workflow Config, Document Creation, Workflow Engine — is built and confirmed working.)
+
+This phase completes the document lifecycle (attachments, cancellation, finalization/archival), extends approval access beyond internal AD users (external approvers, delegation), adds the personal/admin dashboards, and wires up real outbound notifications.
+
+Modules to Build in This Phase
+
+M4 — External (Non-AD) Approver Service
+
+
+Owner/Admin adds an external approver by name + email at a step.
+Generate a single-use, time-bound secure link (default 72h, configurable) + a separate OTP (default 10 min, configurable) sent to the same email — no password, no standing account.
+Scope the resulting session strictly to that one document/step: view, comment, attach, approve/reject only — zero visibility into anything else.
+Reject expired links/OTPs with a distinct "expired" error; require a fresh link.
+Log every external action with email, IP, timestamp, OTP-verification status.
+Endpoints: POST /api/external-approvers, POST /api/external-sessions/verify-otp.
+
+
+M5 — Delegation & Out-of-Office Service
+
+
+Approver configures a delegate for a date range; during that window the delegate sees and can act on the approver's routed documents.
+Attribute delegate actions as "Approved by Delegate X on behalf of Y."
+Department/Super Admin can force-reassign a stuck step to another eligible approver — mandatory logged reason required.
+Endpoints: POST /api/delegations, POST /api/workflow-steps/{id}/reassign.
+
+
+M7 — Attachment & Document Viewer Service
+
+
+Accept Word/Excel/PPT/PDF/JPG/PNG uploads against a configurable allow-list + max size.
+Route every upload through AV/malware scanning before it is attachable or viewable; quarantine failures.
+Version attachments internally when replaced pre-submission; surface only the latest by default.
+Server-side conversion to previewable HTML/PDF (no client-side Office install required).
+Support per-role download restriction, independent of preview access.
+Support comment-level attachments under the same scanning rules.
+Endpoints: POST /api/documents/{id}/attachments, GET /api/attachments/{id}/preview.
+
+
+M9 — Cancellation Service
+
+
+Only the Owner can cancel, only while not yet finalized.
+Notify only users already reached/actioned in that specific workflow instance — never the full configured chain, never anyone not yet reached.
+Retain cancelled documents in a "Cancelled" state with full history for audit; exclude from active dashboards.
+Endpoint: POST /api/documents/{id}/cancel.
+
+
+M10 — Finalization & Repository Service
+
+
+On final approval: auto-generate a unique Document ID; create a repository folder/record.
+Store final locked body + all attachments + full approval trail + all comments under that ID.
+Approval trail per step: approver AD name/ID, designation, action, comment, attachment, server timestamp.
+Enforce immutability at the data layer — no further edits; amendments require a new linked document.
+Auto-generate a canonical archival PDF (document + full trail).
+Endpoints: POST /api/documents/{id}/finalize, GET /api/repository/{documentId}.
+
+
+M11 — Dashboard & Aggregation Service
+
+
+Personal dashboard: Pending My Approval, My Documents (by status), Recently Completed.
+Department/org-wide dashboard for Admins, filterable by workflow/date/status/SLA breach.
+Compute on-time / at-risk / overdue classification per document/step.
+Expose quick-action endpoints (approve/reject/comment) callable directly from dashboard views.
+Must be role-scoped — never leak data outside the requester's permitted visibility.
+Endpoints: GET /api/dashboard/me, GET /api/dashboard/department/{id}.
+
+
+M13 — Notification Engine (Email / In-App / SMS-WhatsApp)
+
+
+Event-driven dispatch across channels per this matrix:
+
+
+EventEmailIn-AppSMS/WhatsAppSubmitted for my approvalYesYesYesMy approval recorded / routed onYesYes—RejectedYesYesYesReturned for correctionYesYesYesCancelled (scoped)YesYesYesFully approved / finalizedYesYes—SLA breach / reminderYesYesYes
+
+
+Track delivery status (sent/delivered/read) per notification.
+Abstract the SMS/WhatsApp gateway behind a provider-agnostic interface (provider TBD/pluggable).
+Route M4's OTP/link emails through this engine (Email channel only).
+Notification failures must never block or roll back the workflow action that triggered them — log and retry per policy.
+
+
+Additional Data Model for This Phase
+
+Attachment, ExternalApproverSession, Delegation, Notification.
+
+What I Want You To Do in Phase 2
+
+
+Build M7 (Attachments) first — M4, M9, M10, and M11 all touch documents/attachments and are easier to test with real files flowing.
+Build M4 (External Approvers) and M5 (Delegation) next — extensions to the M8 engine from Phase 1.
+Build M9 (Cancellation) and M10 (Finalization) together, since both are terminal states of the same document lifecycle — write tests confirming a finalized document is truly immutable and a cancelled document notifies only the scoped recipient list.
+Build M13 (Notification Engine) as a decoupled service consumed by every module above via events — do not let any module call an email/SMS provider directly.
+Build M11 (Dashboard) last in this phase, since it aggregates data produced by everything else.
+Write integration tests confirming: an external approver cannot see unrelated documents; a delegate's actions are correctly attributed; a finalized document rejects any further write; cancellation notices reach only already-actioned recipients.
+Stop at the end of this phase and confirm the full single-workflow-instance lifecycle (create → attach → external/internal approve → finalize, and separately create → cancel) works end-to-end with real notifications firing before I hand you Phase 3.
+
+
+
+
+PHASE 3 — Mobile Backend, Audit, Search, Reporting & Security Hardening
+
+(Prerequisite: Phases 1 and 2 are built and confirmed working — the full single-client document lifecycle is functional.)
+
+This phase makes the backend production-ready: a true multi-client (mobile) contract, tamper-evident audit/compliance, search, management reporting, and the cross-cutting security hardening that every prior module was built assuming would eventually exist.
+
+Modules to Build in This Phase
+
+M12 — Mobile Backend API & Push Notification Service
+
+
+Mobile consumes the exact same REST endpoints built in Phases 1–2 — no parallel logic. Audit the existing endpoints now for any Web-only assumptions and fix them.
+AD-based mobile login sharing M1's identity, issuing a token that supports client-side biometric re-entry.
+Push dispatch (APNs/FCM) for new approvals, SLA reminders, rejections, returns, cancellations — wire into M13's event dispatch.
+Accept offline-queued actions; re-validate server-side (including sequential-visibility) on reconnect; return a clear structured conflict response if stale.
+Support a step-up-authentication flag for high-value/financial actions so the client can force biometric/PIN re-entry before submitting.
+
+
+M14 — Audit & Compliance Service
+
+
+Append-only, tamper-evident (hash-chained/write-once) log of every create/view/comment/approve/reject/return/cancel/finalize event across all modules built in Phases 1–2.
+Retrofit view-logging (not just actions) for sensitive/high-value documents.
+Configurable per-department/per-document-type retention, with legal-hold override that suspends normal retention/deletion.
+Export full audit trail by document/department/date range for Auditor/Compliance and Super Admin roles.
+Verify: no code path outside the audit writer can modify or delete an existing entry — add a regression test for this.
+
+
+M15 — Search Service
+
+
+Metadata search: Document ID, subject, owner, approver, date range, amount, status.
+Full-text search across document body (and attachment text where feasible).
+Results always scoped to what the requesting user is permitted to view.
+Index asynchronously on finalize/update — never block the triggering action.
+
+
+M16 — Reporting & Analytics Service
+
+
+Average end-to-end / per-step approval time by department and workflow.
+Bottleneck analysis (which approver/step causes most delay).
+Volume trends and rejection-rate analysis over configurable periods.
+Export to Excel/PDF. Scope all queries by requester role (department vs org-wide).
+
+
+M17 — Security Service Hardening (RBAC, MFA, Encryption)
+
+
+Formal RBAC audit pass across every endpoint built in Phases 1–3 — confirm least-privilege defaults hold, not just for new endpoints.
+Add optional MFA/step-up for high-value/financial workflows, configurable per workflow — not global.
+Confirm TLS everywhere in transit; add/verify encryption at rest for documents, attachments, sensitive DB fields, and backups.
+Detailed access logging (views, not just actions) feeding M14, applied retroactively to Phase 1–2 read endpoints.
+
+
+Additional Data Model for This Phase
+
+AuditLogEntry (formalized as append-only/hash-chained), plus any indexing tables Search requires.
+
+Non-Functional Hardening for This Phase
+
+CategoryTargetAvailability99.5% uptime during business hours; HA app tier (active-passive or load-balanced)PerformanceDocument open/preview < 2s for files <10MB; dashboard load < 2s at up to 500 concurrent usersScalabilityHorizontal scaling of API/app tier for multi-department, multi-thousand-user orgsBackup/DRScheduled on-prem backups with defined RPO/RTO and a documented DR runbook
+
+What I Want You To Do in Phase 3
+
+
+Start with M14 (Audit) — retrofit tamper-evident logging across everything already built before adding new surface area.
+Build M17's hardening pass next, since it's a security review of the entire existing codebase, not just new endpoints.
+Build M12 (Mobile Backend) third — confirm/patch every Phase 1–2 endpoint for client-agnostic behavior, then add push + offline-sync handling.
+Build M15 (Search) and M16 (Reporting) last — both are read-only aggregations over data produced by everything else.
+Load-test against the performance/scalability targets above and document actual results vs. target.
+Produce a final OpenAPI/Swagger spec covering the complete API surface across all three phases, plus a DR runbook draft.
+Deliver a traceability summary mapping each of the 17 modules to its test coverage, so gaps are visible before go-live.

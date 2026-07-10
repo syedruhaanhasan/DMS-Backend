@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WDAS.Api/WDAS.Api.csproj" />
+    <Project Path="src/WDAS.Application/WDAS.Application.csproj" />
+    <Project Path="src/WDAS.Domain/WDAS.Domain.csproj" />
+    <Project Path="src/WDAS.Infrastructure/WDAS.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WDAS.IntegrationTests/WDAS.IntegrationTests.csproj" />
+    <Project Path="tests/WDAS.UnitTests/WDAS.UnitTests.csproj" />
+  </Folder>
+</Solution>

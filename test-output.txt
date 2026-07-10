@@ -1,0 +1,40 @@
+﻿  Determining projects to restore...
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj]
+D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj : warning NU1903: Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc
+D:\document management\src\WDAS.Api\WDAS.Api.csproj : warning NU1903: Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc [D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj]
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-37gx-xxp4-5rgx [D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj]
+D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+D:\document management\src\WDAS.Api\WDAS.Api.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj]
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-w3x6-4m5h-cxqf [D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj]
+  All projects are up-to-date for restore.
+D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj : warning NU1903: Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc
+D:\document management\tests\WDAS.IntegrationTests\WDAS.IntegrationTests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+D:\document management\src\WDAS.Api\WDAS.Api.csproj : warning NU1903: Package 'Microsoft.OpenApi' 2.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc
+D:\document management\src\WDAS.Api\WDAS.Api.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-37gx-xxp4-5rgx
+D:\document management\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj : warning NU1903: Package 'System.Security.Cryptography.Xml' 9.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-w3x6-4m5h-cxqf
+  WDAS.Domain -> D:\document management\src\WDAS.Domain\bin\Debug\net10.0\WDAS.Domain.dll
+  WDAS.Application -> D:\document management\src\WDAS.Application\bin\Debug\net10.0\WDAS.Application.dll
+  WDAS.Infrastructure -> D:\document management\src\WDAS.Infrastructure\bin\Debug\net10.0\WDAS.Infrastructure.dll
+  WDAS.Api -> D:\document management\src\WDAS.Api\bin\Debug\net10.0\WDAS.Api.dll
+  WDAS.IntegrationTests -> D:\document management\tests\WDAS.IntegrationTests\bin\Debug\net10.0\WDAS.IntegrationTests.dll
+Test run for D:\document management\tests\WDAS.IntegrationTests\bin\Debug\net10.0\WDAS.IntegrationTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet.exe : [xUnit.net 00:00:02.51]     
+WDAS.IntegrationTests.WorkflowIntegrationTests.EndToEnd_DocumentCanFlowThroughMultiStepApproval [FAIL]
+At C:\Users\user\AppData\Local\Temp\ps-script-0d19db82-bdc4-4a11-8dff-533bf44bcc88.ps1:82 char:1
++ & $dotnet test tests/WDAS.IntegrationTests/WDAS.IntegrationTests.cspr ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...Approval [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Failed WDAS.IntegrationTests.WorkflowIntegrationTests.EndToEnd_DocumentCanFlowThroughMultiStepApproval [2 s]
+  Error Message:
+   System.Net.Http.HttpRequestException : Response status code does not indicate success: 500 (Internal Server Error).
+  Stack Trace:
+     at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at WDAS.IntegrationTests.WorkflowIntegrationTests.EndToEnd_DocumentCanFlowThroughMultiStepApproval() in D:\document management\tests\WDAS.IntegrationTests\WorkflowIntegrationTests.cs:line 80
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 2 s - WDAS.IntegrationTests.dll (net10.0)
