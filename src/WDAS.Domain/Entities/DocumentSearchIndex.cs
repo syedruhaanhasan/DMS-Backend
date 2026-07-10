@@ -4,6 +4,7 @@ public class DocumentSearchIndex
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid DocumentId { get; set; }
+    public long RecordNumber { get; set; }
     public string? ArchiveDocumentId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string BodyText { get; set; } = string.Empty;

@@ -40,6 +40,11 @@ public class DocumentService
             .FirstOrDefaultAsync(w => w.Id == request.WorkflowId, cancellationToken)
             ?? throw new DomainException("Workflow not found.");
 
+        if (!workflow.IsActive)
+        {
+            throw new DomainException("This workflow is inactive. Activate it under Configuration → Workflows or choose another workflow.");
+        }
+
         var activeVersion = workflow.Versions
             .Where(v => v.State == WorkflowVersionState.Active)
             .OrderByDescending(v => v.VersionNumber)
@@ -413,6 +418,7 @@ public class DocumentService
     private static DocumentDto MapDocument(Document document) =>
         new(
             document.Id,
+            document.RecordNumber,
             document.OwnerUserId,
             document.Owner?.DisplayName ?? "Unknown",
             document.DepartmentId,

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
@@ -53,7 +54,7 @@ public class DelegationService
             DelegateUserId = delegateUser.Id,
             StartsAtUtc = request.StartsAtUtc,
             EndsAtUtc = request.EndsAtUtc,
-            IsActive = true,
+            IsActive = request.IsActive,
             Reason = request.Reason,
             AutoReplyMessage = request.AutoReplyMessage,
             CreatedAtUtc = now
@@ -84,12 +85,21 @@ public class DelegationService
             delegation.Reason);
     }
 
-    public async Task<IReadOnlyList<DelegationDto>> ListDelegationsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DelegationDto>> ListDelegationsAsync(bool? isActive = null, CancellationToken cancellationToken = default)
     {
         var query = _db.Delegations
             .Include(d => d.Approver)
             .Include(d => d.Delegate)
             .AsQueryable();
+
+        if (isActive == true)
+        {
+            query = query.Where(d => d.IsActive);
+        }
+        else if (isActive == false)
+        {
+            query = query.Where(d => !d.IsActive);
+        }
 
         if (!_currentUser.IsInRole(RoleNames.SuperAdmin))
         {
@@ -115,6 +125,35 @@ public class DelegationService
             d.EndsAtUtc,
             d.IsActive,
             d.Reason)).ToList();
+    }
+
+    public async Task<DelegationDto> SetDelegationActiveStatusAsync(Guid delegationId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        var delegation = await _db.Delegations
+            .Include(d => d.Approver)
+            .Include(d => d.Delegate)
+            .FirstOrDefaultAsync(d => d.Id == delegationId, cancellationToken)
+            ?? throw new DomainException("Delegation not found.");
+
+        if (delegation.ApproverUserId != _currentUser.UserId && !_currentUser.IsInRole(RoleNames.SuperAdmin))
+        {
+            throw new DomainException("You are not authorized to update this delegation.");
+        }
+
+        delegation.IsActive = isActive;
+        delegation.UpdatedAtUtc = _clock.UtcNow;
+        await SaveAsync(cancellationToken);
+
+        return new DelegationDto(
+            delegation.Id,
+            delegation.ApproverUserId,
+            delegation.Approver.DisplayName,
+            delegation.DelegateUserId,
+            delegation.Delegate.DisplayName,
+            delegation.StartsAtUtc,
+            delegation.EndsAtUtc,
+            delegation.IsActive,
+            delegation.Reason);
     }
 
     public async Task DeactivateDelegationAsync(Guid delegationId, CancellationToken cancellationToken = default)

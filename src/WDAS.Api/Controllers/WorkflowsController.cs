@@ -18,9 +18,9 @@ public class WorkflowsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<WorkflowDto>>> GetWorkflows([FromQuery] Guid? departmentId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<WorkflowDto>>> GetWorkflows([FromQuery] Guid? departmentId, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
-        return Ok(await _workflowService.GetWorkflowsAsync(departmentId, cancellationToken));
+        return Ok(await _workflowService.GetWorkflowsAsync(departmentId, isActive, cancellationToken));
     }
 
     [HttpPost]
@@ -77,6 +77,13 @@ public class WorkflowsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<MatrixTierDto>>> CloneMatrix(Guid id, Guid sourceId, CancellationToken cancellationToken)
     {
         return Ok(await _workflowService.CloneMatrixFromWorkflowAsync(id, sourceId, cancellationToken));
+    }
+
+    [HttpPut("{id:guid}/status")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<ActionResult<WorkflowDto>> SetWorkflowStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
+    {
+        return Ok(await _workflowService.SetWorkflowActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]

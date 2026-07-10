@@ -46,9 +46,9 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<UserSummaryDto>>> GetUsers(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<UserSummaryDto>>> GetUsers([FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
-        return Ok(await _authService.GetUsersAsync(cancellationToken));
+        return Ok(await _authService.GetUsersAsync(isActive, cancellationToken));
     }
 
     [HttpPost]
@@ -64,6 +64,13 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserSummaryDto>> UpdateRole(Guid id, [FromBody] UpdateUserRoleRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.UpdateUserRoleAsync(id, request, cancellationToken));
+    }
+
+    [HttpPut("{id:guid}/status")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<ActionResult<UserSummaryDto>> SetUserStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
+    {
+        return Ok(await _authService.SetUserActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]
@@ -102,9 +109,9 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DepartmentDto>>> GetDepartments(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<DepartmentDto>>> GetDepartments([FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
-        return Ok(await _authService.GetDepartmentsAsync(cancellationToken));
+        return Ok(await _authService.GetDepartmentsAsync(isActive, cancellationToken));
     }
 
     [HttpPost]
@@ -144,9 +151,9 @@ public class DocumentTypesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DocumentTypeDto>>> GetDocumentTypes([FromQuery] string? query, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<DocumentTypeDto>>> GetDocumentTypes([FromQuery] string? query, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
-        return Ok(await _documentTypeService.ListAsync(query, cancellationToken));
+        return Ok(await _documentTypeService.ListAsync(query, isActive, cancellationToken));
     }
 
     [HttpPost]

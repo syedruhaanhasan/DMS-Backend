@@ -101,6 +101,7 @@ public class CancellationService
     private static DocumentDto MapDocument(Document document) =>
         new(
             document.Id,
+            document.RecordNumber,
             document.OwnerUserId,
             document.Owner.DisplayName,
             document.DepartmentId,

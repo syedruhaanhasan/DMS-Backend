@@ -279,6 +279,44 @@ public class AuthService
             cancellationToken);
     }
 
+    public async Task<UserSummaryDto> SetUserActiveStatusAsync(Guid userId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        EnsureSuperAdmin();
+
+        if (!isActive && userId == _currentUser.UserId)
+        {
+            throw new DomainException("You cannot deactivate your own account.");
+        }
+
+        var user = await _db.Users
+            .Include(u => u.Department)
+            .Include(u => u.RoleMappings)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new DomainException("User not found.");
+
+        user.IsDisabledInApp = !isActive;
+        if (!isActive)
+        {
+            user.AdDisabledAtUtc = _clock.UtcNow;
+        }
+        else
+        {
+            user.AdDisabledAtUtc = null;
+        }
+
+        user.UpdatedAtUtc = _clock.UtcNow;
+        await SaveAsync(cancellationToken);
+
+        await _auditWriter.WriteAsync(new AuditWriteRequest(
+            AuditEventType.Update,
+            isActive ? "User activated" : "User deactivated",
+            ActorUserId: _currentUser.UserId,
+            DetailsJson: JsonSerializer.Serialize(new { userId, isActive })),
+            cancellationToken);
+
+        return MapUser(user);
+    }
+
     public async Task<SyncResultDto> SyncDirectoryAsync(CancellationToken cancellationToken = default)
     {
         var departments = await _identityProvider.GetDirectoryDepartmentsAsync(cancellationToken);
@@ -386,20 +424,43 @@ public class AuthService
         return new SyncResultDto(users.Count, departments.Count, now, _identityProvider.GetType().Name);
     }
 
-    public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(bool? isActive = null, CancellationToken cancellationToken = default)
     {
-        var users = await _db.Users
+        var query = _db.Users
             .Include(u => u.Department)
             .Include(u => u.RoleMappings)
+            .AsQueryable();
+
+        if (isActive == true)
+        {
+            query = query.Where(u => !u.IsDisabledInApp);
+        }
+        else if (isActive == false)
+        {
+            query = query.Where(u => u.IsDisabledInApp);
+        }
+
+        var users = await query
             .OrderBy(u => u.DisplayName)
             .ToListAsync(cancellationToken);
 
         return users.Select(MapUser).ToList();
     }
 
-    public async Task<IReadOnlyList<DepartmentDto>> GetDepartmentsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DepartmentDto>> GetDepartmentsAsync(bool? isActive = null, CancellationToken cancellationToken = default)
     {
-        return await _db.Departments
+        var query = _db.Departments.AsQueryable();
+
+        if (isActive == true)
+        {
+            query = query.Where(d => d.IsActive);
+        }
+        else if (isActive == false)
+        {
+            query = query.Where(d => !d.IsActive);
+        }
+
+        return await query
             .OrderBy(d => d.Name)
             .Select(d => new DepartmentDto(d.Id, d.Name, d.Code, d.ParentDepartmentId, d.IsActive))
             .ToListAsync(cancellationToken);
@@ -576,5 +637,6 @@ public class AuthService
             user.Title,
             user.DepartmentId,
             user.Department.Name,
-            user.RoleMappings.Select(r => r.Role).Distinct().ToList());
+            user.RoleMappings.Select(r => r.Role).Distinct().ToList(),
+            !user.IsDisabledInApp);
 }

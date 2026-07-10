@@ -18,11 +18,14 @@ builder.Services.AddWdasSwagger();
 
 builder.Services.AddCors(options =>
 {
+    var allowedHosts = builder.Configuration.GetSection("Cors:AllowedHosts").Get<string[]>()
+        ?? ["localhost", "127.0.0.1", "192.168.100.26", "192.168.100.31"];
+
     options.AddDefaultPolicy(policy =>
         policy.SetIsOriginAllowed(origin =>
             {
                 if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-                return uri.Host is "localhost" or "127.0.0.1";
+                return allowedHosts.Contains(uri.Host, StringComparer.OrdinalIgnoreCase);
             })
             .AllowAnyHeader()
             .AllowAnyMethod());

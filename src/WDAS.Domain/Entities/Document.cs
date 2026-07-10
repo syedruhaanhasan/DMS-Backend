@@ -5,6 +5,7 @@ namespace WDAS.Domain.Entities;
 
 public class Document : Entity
 {
+    public long RecordNumber { get; set; }
     public Guid OwnerUserId { get; set; }
     public Guid DepartmentId { get; set; }
     public Guid WorkflowId { get; set; }

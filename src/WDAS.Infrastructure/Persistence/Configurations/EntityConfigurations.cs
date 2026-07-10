@@ -94,6 +94,11 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
 {
     public void Configure(EntityTypeBuilder<Document> builder)
     {
+        builder.Property(d => d.RecordNumber)
+            .ValueGeneratedOnAdd()
+            .UseIdentityColumn();
+
+        builder.HasIndex(d => d.RecordNumber).IsUnique();
         builder.HasIndex(d => d.SubmitIdempotencyKey);
         builder.Property(d => d.Subject).HasMaxLength(500).IsRequired();
         builder.Property(d => d.Amount).HasPrecision(18, 2);

@@ -116,6 +116,7 @@ public class DashboardService
 
         return new DashboardDocumentItemDto(
             document.Id,
+            document.RecordNumber,
             document.OwnerUserId,
             document.Subject,
             document.Status.ToString(),

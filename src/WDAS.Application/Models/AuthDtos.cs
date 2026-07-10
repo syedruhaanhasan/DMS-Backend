@@ -15,7 +15,8 @@ public record UserSummaryDto(
     string Title,
     Guid DepartmentId,
     string DepartmentName,
-    IReadOnlyCollection<ApplicationRole> Roles);
+    IReadOnlyCollection<ApplicationRole> Roles,
+    bool IsActive);
 
 public record DepartmentDto(Guid Id, string Name, string Code, Guid? ParentDepartmentId, bool IsActive);
 

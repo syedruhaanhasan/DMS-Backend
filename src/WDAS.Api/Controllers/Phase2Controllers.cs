@@ -115,9 +115,15 @@ public class DelegationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DelegationDto>>> List(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<DelegationDto>>> List([FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
-        return Ok(await _delegationService.ListDelegationsAsync(cancellationToken));
+        return Ok(await _delegationService.ListDelegationsAsync(isActive, cancellationToken));
+    }
+
+    [HttpPut("{id:guid}/status")]
+    public async Task<ActionResult<DelegationDto>> SetStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
+    {
+        return Ok(await _delegationService.SetDelegationActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]

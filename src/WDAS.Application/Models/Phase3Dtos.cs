@@ -42,6 +42,7 @@ public record SearchRequest(
 
 public record SearchResultItemDto(
     Guid DocumentId,
+    long RecordNumber,
     string? ArchiveDocumentId,
     string Subject,
     string OwnerDisplayName,

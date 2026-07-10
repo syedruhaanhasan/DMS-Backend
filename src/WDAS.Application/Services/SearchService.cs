@@ -95,6 +95,7 @@ public partial class SearchService
             total,
             items.Select(i => new SearchResultItemDto(
                 i.DocumentId,
+                i.RecordNumber,
                 i.ArchiveDocumentId,
                 i.Subject,
                 i.OwnerDisplayName,
@@ -163,7 +164,7 @@ public partial class DocumentSearchIndexer : IDocumentSearchIndexer
         }
 
         var bodyText = HtmlStripRegex().Replace(document.BodyHtml, " ");
-        var searchable = $"{document.Subject} {bodyText} {document.Owner.DisplayName} {document.ArchiveDocumentId}".ToLowerInvariant();
+        var searchable = $"{document.RecordNumber} {document.Subject} {bodyText} {document.Owner.DisplayName} {document.ArchiveDocumentId}".ToLowerInvariant();
 
         var existing = await _db.DocumentSearchIndexes.FirstOrDefaultAsync(i => i.DocumentId == documentId, cancellationToken);
         if (existing is null)
@@ -171,6 +172,7 @@ public partial class DocumentSearchIndexer : IDocumentSearchIndexer
             _db.Add(new DocumentSearchIndex
             {
                 DocumentId = document.Id,
+                RecordNumber = document.RecordNumber,
                 ArchiveDocumentId = document.ArchiveDocumentId,
                 Subject = document.Subject,
                 BodyText = bodyText,
@@ -187,6 +189,7 @@ public partial class DocumentSearchIndexer : IDocumentSearchIndexer
         }
         else
         {
+            existing.RecordNumber = document.RecordNumber;
             existing.ArchiveDocumentId = document.ArchiveDocumentId;
             existing.Subject = document.Subject;
             existing.BodyText = bodyText;

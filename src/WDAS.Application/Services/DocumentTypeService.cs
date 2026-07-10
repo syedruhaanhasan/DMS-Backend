@@ -28,9 +28,18 @@ public class DocumentTypeService
         _auditWriter = auditWriter;
     }
 
-    public async Task<IReadOnlyList<DocumentTypeDto>> ListAsync(string? query = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DocumentTypeDto>> ListAsync(string? query = null, bool? isActive = null, CancellationToken cancellationToken = default)
     {
         var types = _db.DocumentTypeDefinitions.AsNoTracking();
+
+        if (isActive == true)
+        {
+            types = types.Where(t => t.IsActive);
+        }
+        else if (isActive == false)
+        {
+            types = types.Where(t => !t.IsActive);
+        }
 
         if (!string.IsNullOrWhiteSpace(query))
         {

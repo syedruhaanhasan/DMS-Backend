@@ -21,7 +21,7 @@ public class WorkflowService
         _clock = clock;
     }
 
-    public async Task<IReadOnlyList<WorkflowDto>> GetWorkflowsAsync(Guid? departmentId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkflowDto>> GetWorkflowsAsync(Guid? departmentId, bool? isActive = null, CancellationToken cancellationToken = default)
     {
         var query = _db.Workflows.Include(w => w.Versions).AsQueryable();
 
@@ -35,6 +35,15 @@ public class WorkflowService
         else if (departmentId.HasValue)
         {
             query = query.Where(w => w.DepartmentId == departmentId.Value);
+        }
+
+        if (isActive == true)
+        {
+            query = query.Where(w => w.IsActive);
+        }
+        else if (isActive == false)
+        {
+            query = query.Where(w => !w.IsActive);
         }
 
         var workflows = await query.OrderBy(w => w.Name).ToListAsync(cancellationToken);
@@ -392,19 +401,32 @@ public class WorkflowService
 
     public async Task DeleteWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
     {
-        var workflow = await _db.Workflows.FirstOrDefaultAsync(w => w.Id == workflowId, cancellationToken)
+        await SetWorkflowActiveStatusAsync(workflowId, false, cancellationToken);
+    }
+
+    public async Task<WorkflowDto> SetWorkflowActiveStatusAsync(Guid workflowId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        var workflow = await _db.Workflows
+            .Include(w => w.Versions)
+            .FirstOrDefaultAsync(w => w.Id == workflowId, cancellationToken)
             ?? throw new DomainException("Workflow not found.");
 
         EnsureSuperAdmin();
 
-        if (await _db.Documents.AnyAsync(d => d.WorkflowId == workflowId, cancellationToken))
+        if (isActive)
         {
-            throw new DomainException("Cannot delete a workflow that has documents. Deactivate it instead.");
+            var hasActiveVersion = workflow.Versions.Any(v => v.State == WorkflowVersionState.Active);
+            if (!hasActiveVersion)
+            {
+                throw new DomainException("Cannot activate a workflow without a published version. Publish the workflow first.");
+            }
         }
 
-        workflow.IsActive = false;
+        workflow.IsActive = isActive;
         workflow.UpdatedAtUtc = _clock.UtcNow;
         await SaveAsync(cancellationToken);
+
+        return MapWorkflow(workflow);
     }
 
     private void EnsureSuperAdmin()

@@ -24,7 +24,8 @@ public record CreateDelegationRequest(
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,
     string? Reason,
-    string? AutoReplyMessage);
+    string? AutoReplyMessage,
+    bool IsActive = true);
 
 public record DelegationDto(
     Guid Id,
@@ -76,6 +77,7 @@ public record RepositoryDocumentDto(
 
 public record DashboardDocumentItemDto(
     Guid DocumentId,
+    long RecordNumber,
     Guid OwnerUserId,
     string Subject,
     string Status,

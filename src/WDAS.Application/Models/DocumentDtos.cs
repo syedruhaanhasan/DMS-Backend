@@ -4,6 +4,7 @@ namespace WDAS.Application.Models;
 
 public record DocumentDto(
     Guid Id,
+    long RecordNumber,
     Guid OwnerUserId,
     string OwnerDisplayName,
     Guid DepartmentId,
