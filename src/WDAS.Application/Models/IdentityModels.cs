@@ -1,5 +1,3 @@
-using WDAS.Domain.Enums;
-
 namespace WDAS.Application.Models;
 
 public record AuthenticatedUser(
@@ -8,7 +6,7 @@ public record AuthenticatedUser(
     string DisplayName,
     string Email,
     Guid DepartmentId,
-    IReadOnlyCollection<ApplicationRole> Roles);
+    IReadOnlyCollection<string> RoleCodes);
 
 public record DirectoryUserSnapshot(
     string AdObjectId,

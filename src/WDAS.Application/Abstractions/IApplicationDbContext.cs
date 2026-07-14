@@ -7,6 +7,8 @@ public interface IApplicationDbContext
     IQueryable<Department> Departments { get; }
     IQueryable<User> Users { get; }
     IQueryable<RoleMapping> RoleMappings { get; }
+    IQueryable<SecurityRole> SecurityRoles { get; }
+    IQueryable<SecurityRolePermission> SecurityRolePermissions { get; }
     IQueryable<Workflow> Workflows { get; }
     IQueryable<WorkflowVersion> WorkflowVersions { get; }
     IQueryable<ApprovalMatrixTier> ApprovalMatrixTiers { get; }

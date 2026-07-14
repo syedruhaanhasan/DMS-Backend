@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using WDAS.Application.Models;
 using WDAS.Application.Services;
 
@@ -13,21 +14,29 @@ public class DocumentsController : ControllerBase
     private readonly DocumentService _documentService;
     private readonly CancellationService _cancellationService;
     private readonly FinalizationService _finalizationService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public DocumentsController(
         DocumentService documentService,
         CancellationService cancellationService,
-        FinalizationService finalizationService)
+        FinalizationService finalizationService,
+        IServiceScopeFactory scopeFactory)
     {
         _documentService = documentService;
         _cancellationService = cancellationService;
         _finalizationService = finalizationService;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpPost]
     public async Task<ActionResult<DocumentDto>> CreateDocument([FromBody] CreateDocumentRequest request, CancellationToken cancellationToken)
     {
         var document = await _documentService.CreateDocumentAsync(request, cancellationToken);
+        if (request.Submit)
+        {
+            SchedulePostSubmitSideEffects(document.Id);
+        }
+
         return CreatedAtAction(nameof(GetDocument), new { id = document.Id }, document);
     }
 
@@ -40,7 +49,41 @@ public class DocumentsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<DocumentDto>> UpdateDocument(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken cancellationToken)
     {
-        return Ok(await _documentService.UpdateDocumentAsync(id, request, cancellationToken));
+        var document = await _documentService.UpdateDocumentAsync(id, request, cancellationToken);
+        if (request.Submit)
+        {
+            SchedulePostSubmitSideEffects(document.Id);
+        }
+
+        return Ok(document);
+    }
+
+    [HttpPost("{id:guid}/submit")]
+    public async Task<ActionResult<DocumentDto>> SubmitDocument(Guid id, [FromBody] SubmitDocumentRequest? request, CancellationToken cancellationToken)
+    {
+        var document = await _documentService.SubmitDocumentAsync(id, request?.IdempotencyKey, cancellationToken);
+        SchedulePostSubmitSideEffects(document.Id);
+        return Ok(document);
+    }
+
+    private void SchedulePostSubmitSideEffects(Guid documentId)
+    {
+        // Run indexing/notifications after the response so submit feels instant even if SMTP is slow/down.
+        var scopeFactory = _scopeFactory;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var docs = scope.ServiceProvider.GetRequiredService<DocumentService>();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                await docs.RunPostSubmitSideEffectsAsync(documentId, cts.Token);
+            }
+            catch
+            {
+                // Side effects are best-effort.
+            }
+        });
     }
 
     [HttpDelete("{id:guid}")]

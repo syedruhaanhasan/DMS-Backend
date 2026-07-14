@@ -1,0 +1,6 @@
+{
+  "WDAS.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\document management\\backend\\src\\WDAS.Api",
+  "WDAS.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\document management\\backend\\src\\WDAS.Application",
+  "WDAS.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\document management\\backend\\src\\WDAS.Domain",
+  "WDAS.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\document management\\backend\\src\\WDAS.Infrastructure"
+}

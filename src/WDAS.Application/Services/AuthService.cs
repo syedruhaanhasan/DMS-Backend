@@ -47,14 +47,14 @@ public class AuthService
         {
             user = await _db.Users
                 .Include(u => u.Department)
-                .Include(u => u.RoleMappings)
+                .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
                 .FirstOrDefaultAsync(u => u.AdObjectId == authenticated.AdObjectId, cancellationToken);
         }
         else
         {
             user = await _db.Users
                 .Include(u => u.Department)
-                .Include(u => u.RoleMappings)
+                .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
                 .FirstOrDefaultAsync(
                     u => u.UserPrincipalName == request.Username && u.PasswordHash != null,
                     cancellationToken);
@@ -70,13 +70,27 @@ public class AuthService
             throw new DomainException("User is not authorized for this application.");
         }
 
-        var roles = user.RoleMappings.Select(r => r.Role).Distinct().ToList();
-        if (roles.Contains(ApplicationRole.SuperAdmin))
+        var roleCodes = user.RoleMappings
+            .Where(m => m.Role.IsActive)
+            .Select(m => m.Role.Code)
+            .Distinct()
+            .ToList();
+
+        if (roleCodes.Contains(RoleNames.SuperAdmin))
         {
-            roles = Enum.GetValues<ApplicationRole>().ToList();
+            // Expand claim set so existing RequireRole policies still succeed.
+            roleCodes = new List<string>
+            {
+                RoleNames.SuperAdmin,
+                RoleNames.DepartmentAdmin,
+                RoleNames.MakerOwner,
+                RoleNames.Approver,
+                RoleNames.Auditor,
+                RoleNames.ItAdmin,
+            };
         }
 
-        var tokenUser = new AuthenticatedUser(user.Id, user.AdObjectId, user.DisplayName, user.Email, user.DepartmentId, roles);
+        var tokenUser = new AuthenticatedUser(user.Id, user.AdObjectId, user.DisplayName, user.Email, user.DepartmentId, roleCodes);
         var token = _jwtTokenService.CreateToken(tokenUser);
 
         await _auditWriter.WriteAsync(new AuditWriteRequest(
@@ -170,18 +184,27 @@ public class AuthService
             LastSyncedAtUtc = now
         };
 
-        var roles = ResolveRoles(request.Roles, request.Role);
-        if (roles.Count == 0)
+        var roleIds = await ResolveRoleIdsAsync(request.RoleIds, request.Roles, request.Role, cancellationToken);
+        if (roleIds.Count == 0)
         {
             throw new DomainException("At least one role is required.");
         }
 
-        foreach (var role in roles)
+        var securityRoles = await _db.SecurityRoles
+            .Where(r => roleIds.Contains(r.Id) && r.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (securityRoles.Count != roleIds.Count)
+        {
+            throw new DomainException("One or more selected roles were not found.");
+        }
+
+        foreach (var role in securityRoles)
         {
             user.RoleMappings.Add(new RoleMapping
             {
-                Role = role,
-                DepartmentId = role == ApplicationRole.SuperAdmin ? null : department.Id,
+                RoleId = role.Id,
+                DepartmentId = role.Code == RoleNames.SuperAdmin ? null : department.Id,
                 CreatedAtUtc = now
             });
         }
@@ -194,12 +217,12 @@ public class AuthService
             AuditEventType.Update,
             "User created",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { user.Id, user.UserPrincipalName, Roles = roles, request.AccountType })),
+            DetailsJson: JsonSerializer.Serialize(new { user.Id, user.UserPrincipalName, RoleIds = roleIds, request.AccountType })),
             cancellationToken);
 
         user = await _db.Users
             .Include(u => u.Department)
-            .Include(u => u.RoleMappings)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstAsync(u => u.Id == user.Id, cancellationToken);
 
         return MapUser(user);
@@ -215,21 +238,38 @@ public class AuthService
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new DomainException("User not found.");
 
-        var roles = ResolveRoles(request.Roles, request.Role);
-        if (roles.Count == 0)
+        var roleIds = await ResolveRoleIdsAsync(request.RoleIds, request.Roles, request.Role, cancellationToken);
+        if (roleIds.Count == 0)
         {
             throw new DomainException("At least one role is required.");
         }
 
+        var securityRoles = await _db.SecurityRoles
+            .Where(r => roleIds.Contains(r.Id) && r.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (securityRoles.Count != roleIds.Count)
+        {
+            throw new DomainException("One or more selected roles were not found.");
+        }
+
+        // Prevent locking yourself out of administration.
+        if (userId == _currentUser.UserId &&
+            user.RoleMappings.Any(m => m.RoleId == Domain.SecurityRoleIds.SuperAdmin) &&
+            securityRoles.All(r => r.Code != RoleNames.SuperAdmin))
+        {
+            throw new DomainException("You cannot remove the Super Admin role from your own account.");
+        }
+
         var now = _clock.UtcNow;
         _db.RemoveRange(user.RoleMappings);
-        foreach (var role in roles)
+        foreach (var role in securityRoles)
         {
             _db.Add(new RoleMapping
             {
                 UserId = user.Id,
-                Role = role,
-                DepartmentId = role == ApplicationRole.SuperAdmin ? null : user.DepartmentId,
+                RoleId = role.Id,
+                DepartmentId = role.Code == RoleNames.SuperAdmin ? null : user.DepartmentId,
                 CreatedAtUtc = now
             });
         }
@@ -241,12 +281,12 @@ public class AuthService
             AuditEventType.Update,
             "User roles updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userId, Roles = roles })),
+            DetailsJson: JsonSerializer.Serialize(new { userId, RoleIds = roleIds })),
             cancellationToken);
 
         user = await _db.Users
             .Include(u => u.Department)
-            .Include(u => u.RoleMappings)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstAsync(u => u.Id == userId, cancellationToken);
 
         return MapUser(user);
@@ -290,7 +330,7 @@ public class AuthService
 
         var user = await _db.Users
             .Include(u => u.Department)
-            .Include(u => u.RoleMappings)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new DomainException("User not found.");
 
@@ -426,9 +466,11 @@ public class AuthService
 
     public async Task<IReadOnlyList<UserSummaryDto>> GetUsersAsync(bool? isActive = null, CancellationToken cancellationToken = default)
     {
+        // Directory/list callers only need identity + roles — expand permissions on login/detail, not every row.
         var query = _db.Users
+            .AsNoTracking()
             .Include(u => u.Department)
-            .Include(u => u.RoleMappings)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role)
             .AsQueryable();
 
         if (isActive == true)
@@ -444,7 +486,7 @@ public class AuthService
             .OrderBy(u => u.DisplayName)
             .ToListAsync(cancellationToken);
 
-        return users.Select(MapUser).ToList();
+        return users.Select(u => MapUser(u, includePermissions: false)).ToList();
     }
 
     public async Task<IReadOnlyList<DepartmentDto>> GetDepartmentsAsync(bool? isActive = null, CancellationToken cancellationToken = default)
@@ -597,25 +639,59 @@ public class AuthService
             cancellationToken);
     }
 
-    private static List<ApplicationRole> ResolveRoles(List<ApplicationRole>? roles, ApplicationRole? legacyRole)
+    private async Task<List<Guid>> ResolveRoleIdsAsync(
+        List<Guid>? roleIds,
+        List<ApplicationRole>? legacyRoles,
+        ApplicationRole? legacyRole,
+        CancellationToken cancellationToken)
     {
-        IEnumerable<ApplicationRole> source = roles is { Count: > 0 }
-            ? roles
-            : legacyRole is not null && legacyRole.Value != default
-                ? new[] { legacyRole.Value }
-                : Array.Empty<ApplicationRole>();
+        if (roleIds is { Count: > 0 })
+        {
+            return roleIds.Distinct().ToList();
+        }
 
-        return source
-            .Where(r => Enum.IsDefined(r))
+        IEnumerable<ApplicationRole> source = legacyRoles is { Count: > 0 }
+            ? legacyRoles
+            : legacyRole is not null && legacyRole.Value != default
+                ? new List<ApplicationRole> { legacyRole.Value }
+                : new List<ApplicationRole>();
+
+        var enums = source
+            .Where(Enum.IsDefined)
             .Distinct()
             .ToList();
+
+        if (enums.Count == 0)
+        {
+            return [];
+        }
+
+        var codes = enums.Select(LegacyRoleToCode).ToList();
+        return await _db.SecurityRoles
+            .Where(r => codes.Contains(r.Code))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
     }
+
+    private static string LegacyRoleToCode(ApplicationRole role) => role switch
+    {
+        ApplicationRole.SuperAdmin => RoleNames.SuperAdmin,
+        ApplicationRole.DepartmentAdmin => RoleNames.DepartmentAdmin,
+        ApplicationRole.MakerOwner => RoleNames.MakerOwner,
+        ApplicationRole.Approver => RoleNames.Approver,
+        ApplicationRole.Auditor => RoleNames.Auditor,
+        ApplicationRole.ItAdmin => RoleNames.ItAdmin,
+        _ => role.ToString(),
+    };
 
     private void EnsureSuperAdmin()
     {
-        if (!_currentUser.IsInRole(RoleNames.SuperAdmin))
+        if (!_currentUser.IsInRole(RoleNames.SuperAdmin) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.Users) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.UsersMake) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.UsersCheck))
         {
-            throw new DomainException("Only Super Admin can manage users.");
+            throw new DomainException("You do not have permission to manage users.");
         }
     }
 
@@ -627,8 +703,30 @@ public class AuthService
         }
     }
 
-    private static UserSummaryDto MapUser(User user) =>
-        new(
+    private static UserSummaryDto MapUser(User user, bool includePermissions = true)
+    {
+        var assigned = user.RoleMappings
+            .Where(m => m.Role is not null)
+            .Select(m => m.Role)
+            .GroupBy(r => r.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        IReadOnlyList<string> permissions = Array.Empty<string>();
+        if (includePermissions)
+        {
+            var keys = assigned
+                .Where(r => r.IsActive)
+                .SelectMany(r => r.Permissions?.Select(p => p.PermissionKey) ?? Enumerable.Empty<string>())
+                .Distinct()
+                .ToList();
+
+            permissions = assigned.Any(r => r.Code == RoleNames.SuperAdmin)
+                ? PermissionCatalog.AllKeys
+                : PermissionCatalog.ExpandImplied(keys);
+        }
+
+        return new UserSummaryDto(
             user.Id,
             user.AdObjectId,
             user.UserPrincipalName,
@@ -636,7 +734,9 @@ public class AuthService
             user.Email,
             user.Title,
             user.DepartmentId,
-            user.Department.Name,
-            user.RoleMappings.Select(r => r.Role).Distinct().ToList(),
+            user.Department?.Name ?? string.Empty,
+            assigned.Select(r => new AssignedRoleDto(r.Id, r.Name, r.Code)).ToList(),
+            permissions,
             !user.IsDisabledInApp);
+    }
 }

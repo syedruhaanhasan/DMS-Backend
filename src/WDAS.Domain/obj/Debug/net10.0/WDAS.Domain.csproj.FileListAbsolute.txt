@@ -1,0 +1,12 @@
+d:\document management\backend\src\WDAS.Domain\bin\Debug\net10.0\WDAS.Domain.deps.json
+d:\document management\backend\src\WDAS.Domain\bin\Debug\net10.0\WDAS.Domain.dll
+d:\document management\backend\src\WDAS.Domain\bin\Debug\net10.0\WDAS.Domain.pdb
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.GeneratedMSBuildEditorConfig.editorconfig
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.AssemblyInfoInputs.cache
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.AssemblyInfo.cs
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.csproj.CoreCompileInputs.cache
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.sourcelink.json
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.dll
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\refint\WDAS.Domain.dll
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\WDAS.Domain.pdb
+d:\document management\backend\src\WDAS.Domain\obj\Debug\net10.0\ref\WDAS.Domain.dll

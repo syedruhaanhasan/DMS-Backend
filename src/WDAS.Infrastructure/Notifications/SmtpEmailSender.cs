@@ -30,6 +30,8 @@ public class SmtpEmailSender : IEmailSender
         {
             EnableSsl = _options.UseSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network,
+            // Default SmtpClient timeout is 100s — fails fast when Mailpit/SMTP is down.
+            Timeout = Math.Clamp(_options.TimeoutMs <= 0 ? 3000 : _options.TimeoutMs, 1000, 30_000),
         };
 
         if (!string.IsNullOrWhiteSpace(_options.Username))

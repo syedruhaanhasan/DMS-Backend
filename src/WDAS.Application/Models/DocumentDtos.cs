@@ -50,6 +50,8 @@ public record UpdateDocumentRequest(
     bool Submit,
     string? IdempotencyKey);
 
+public record SubmitDocumentRequest(string? IdempotencyKey);
+
 public record DocumentRecipientInput(string RecipientName, string? RecipientEmail);
 
 public record WorkflowStepDto(

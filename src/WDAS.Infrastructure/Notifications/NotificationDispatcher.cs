@@ -52,7 +52,12 @@ public class NotificationDispatcher : INotificationDispatcher
         var now = _clock.UtcNow;
         var shouldPush = request.RecipientUserId.HasValue && ShouldSendPush(request.EventType);
 
-        foreach (var channel in channels)
+        // Prefer in-app persistence first so submit UX is not gated on SMTP/SMS.
+        var orderedChannels = channels
+            .OrderBy(c => c == NotificationChannel.InApp ? 0 : c == NotificationChannel.Email ? 1 : 2)
+            .ToList();
+
+        foreach (var channel in orderedChannels)
         {
             try
             {

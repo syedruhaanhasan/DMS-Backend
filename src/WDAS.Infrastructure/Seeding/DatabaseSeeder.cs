@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,6 +28,7 @@ public static class DatabaseSeeder
         await EnsureWorkflowVersionColumnsAsync(db);
         await EnsureDocumentTypesTableAsync(db);
         await EnsureDocumentTypeColumnsAsync(db);
+        await SecurityRolesBootstrap.EnsureSchemaAndSeedAsync(db);
         await EnsureActiveWorkflowVersionsAsync(db);
         await EnsureDocumentTypesAsync(db);
 
@@ -74,7 +75,7 @@ public static class DatabaseSeeder
             db.RoleMappings.Add(new RoleMapping
             {
                 UserId = user.Id,
-                Role = devUser.Role,
+                RoleId = SecurityRolesBootstrap.RoleIdForLegacy(devUser.Role),
                 DepartmentId = devUser.Role == ApplicationRole.SuperAdmin ? null : devUser.DepartmentId,
                 CreatedAtUtc = now
             });
@@ -90,7 +91,8 @@ public static class DatabaseSeeder
         Guid departmentId,
         DateTime now)
     {
-        var hasRole = await db.RoleMappings.AnyAsync(r => r.UserId == userId && r.Role == role);
+        var roleId = SecurityRolesBootstrap.RoleIdForLegacy(role);
+        var hasRole = await db.RoleMappings.AnyAsync(r => r.UserId == userId && r.RoleId == roleId);
         if (hasRole)
         {
             return;
@@ -99,7 +101,7 @@ public static class DatabaseSeeder
         db.RoleMappings.Add(new RoleMapping
         {
             UserId = userId,
-            Role = role,
+            RoleId = roleId,
             DepartmentId = role == ApplicationRole.SuperAdmin ? null : departmentId,
             CreatedAtUtc = now
         });
@@ -133,7 +135,7 @@ public static class DatabaseSeeder
             db.RoleMappings.Add(new RoleMapping
             {
                 UserId = user.Id,
-                Role = devUser.Role,
+                RoleId = SecurityRolesBootstrap.RoleIdForLegacy(devUser.Role),
                 DepartmentId = devUser.Role == ApplicationRole.SuperAdmin ? null : devUser.DepartmentId,
                 CreatedAtUtc = now
             });

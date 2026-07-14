@@ -91,8 +91,6 @@ public class DocumentService
         {
             await ApplySubmitAsync(document, request.IdempotencyKey, cancellationToken);
             await SaveAsync(cancellationToken);
-            await NotifySubmittedAsync(document.Id, cancellationToken);
-            await _searchIndexer.IndexDocumentAsync(document.Id, cancellationToken);
             return await GetDocumentDtoAsync(document.Id, cancellationToken);
         }
 
@@ -134,12 +132,10 @@ public class DocumentService
             : JsonSerializer.Serialize(request.AdHocApproverUserIds);
         document.UpdatedAtUtc = _clock.UtcNow;
 
-        var existingRecipients = await _db.Documents
-            .Where(d => d.Id == document.Id)
-            .SelectMany(d => d.Recipients)
-            .ToListAsync(cancellationToken);
-        _db.RemoveRange(existingRecipients);
+        // Replace recipients via the already-tracked collection to avoid DELETE+UPDATE conflicts.
+        var previousRecipients = document.Recipients.ToList();
         document.Recipients.Clear();
+        _db.RemoveRange(previousRecipients);
 
         foreach (var recipient in request.Recipients)
         {
@@ -156,8 +152,6 @@ public class DocumentService
         {
             await ApplySubmitAsync(document, request.IdempotencyKey, cancellationToken);
             await SaveAsync(cancellationToken);
-            await NotifySubmittedAsync(document.Id, cancellationToken);
-            await _searchIndexer.IndexDocumentAsync(document.Id, cancellationToken);
             return await GetDocumentDtoAsync(document.Id, cancellationToken);
         }
 
@@ -221,12 +215,15 @@ public class DocumentService
         var searchIndex = await _db.DocumentSearchIndexes.FirstOrDefaultAsync(i => i.DocumentId == document.Id, cancellationToken);
         if (searchIndex is not null)
         {
-            _db.RemoveRange([searchIndex]);
+            _db.RemoveRange(new[] { searchIndex });
         }
 
-        _db.RemoveRange([document]);
+        _db.RemoveRange(new[] { document });
         await SaveAsync(cancellationToken);
     }
+
+    public Task<DocumentDto> SubmitDocumentAsync(Guid documentId, string? idempotencyKey, CancellationToken cancellationToken = default) =>
+        SubmitDocumentInternalAsync(documentId, idempotencyKey, cancellationToken);
 
     private async Task<DocumentDto> SubmitDocumentInternalAsync(Guid documentId, string? idempotencyKey, CancellationToken cancellationToken)
     {
@@ -243,9 +240,41 @@ public class DocumentService
 
         await ApplySubmitAsync(document, idempotencyKey, cancellationToken);
         await SaveAsync(cancellationToken);
-        await NotifySubmittedAsync(document.Id, cancellationToken);
-        await _searchIndexer.IndexDocumentAsync(document.Id, cancellationToken);
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
+    }
+
+    public Task RunPostSubmitSideEffectsAsync(Guid documentId, CancellationToken cancellationToken = default) =>
+        FinalizeSubmissionSideEffectsAsync(documentId, cancellationToken);
+
+    /// <summary>
+    /// Search index + notifications must not block the submit HTTP response.
+    /// Email/SMTP failures (e.g. Mailpit down) previously stalled "Submit for approval".
+    /// </summary>
+    private async Task FinalizeSubmissionSideEffectsAsync(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _searchIndexer.IndexDocumentAsync(documentId, cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Indexing can catch up later; submission already succeeded.
+        }
+
+        try
+        {
+            using var notifyCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            notifyCts.CancelAfter(TimeSpan.FromSeconds(4));
+            await NotifySubmittedAsync(documentId, notifyCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Timed out — in-app/email can retry via jobs; don't fail submit.
+        }
+        catch (Exception)
+        {
+            // Notification failures must never fail document submission.
+        }
     }
 
     private async Task ApplySubmitAsync(Document document, string? idempotencyKey, CancellationToken cancellationToken)

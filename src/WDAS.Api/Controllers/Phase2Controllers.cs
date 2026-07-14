@@ -109,6 +109,7 @@ public class DelegationsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "perm:config.delegation.make")]
     public async Task<ActionResult<DelegationDto>> Create([FromBody] CreateDelegationRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _delegationService.CreateDelegationAsync(request, cancellationToken));
@@ -121,12 +122,14 @@ public class DelegationsController : ControllerBase
     }
 
     [HttpPut("{id:guid}/status")]
+    [Authorize(Policy = "perm:config.delegation.check")]
     public async Task<ActionResult<DelegationDto>> SetStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _delegationService.SetDelegationActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "perm:config.delegation.check")]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken cancellationToken)
     {
         await _delegationService.DeactivateDelegationAsync(id, cancellationToken);
@@ -147,6 +150,7 @@ public class ExternalApproversController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "perm:config.external_approvers.make")]
     public async Task<ActionResult<ExternalApproverSessionDto>> Create(
         [FromBody] CreateExternalApproverRequest request,
         CancellationToken cancellationToken)
@@ -155,14 +159,14 @@ public class ExternalApproversController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.external_approvers")]
     public async Task<ActionResult<IReadOnlyList<ExternalApproverListItemDto>>> List(CancellationToken cancellationToken)
     {
         return Ok(await _externalApproverService.ListExternalApproversAsync(cancellationToken));
     }
 
     [HttpPost("{id:guid}/resend")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.external_approvers.check")]
     public async Task<ActionResult<ExternalApproverSessionDto>> Resend(Guid id, CancellationToken cancellationToken)
     {
         return Ok(await _externalApproverService.ResendLinkAsync(id, cancellationToken));

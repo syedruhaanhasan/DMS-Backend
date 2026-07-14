@@ -13,6 +13,8 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RoleMapping> RoleMappings => Set<RoleMapping>();
+    public DbSet<SecurityRole> SecurityRoles => Set<SecurityRole>();
+    public DbSet<SecurityRolePermission> SecurityRolePermissions => Set<SecurityRolePermission>();
     public DbSet<Workflow> Workflows => Set<Workflow>();
     public DbSet<WorkflowVersion> WorkflowVersions => Set<WorkflowVersion>();
     public DbSet<ApprovalMatrixTier> ApprovalMatrixTiers => Set<ApprovalMatrixTier>();
@@ -35,6 +37,8 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     IQueryable<Department> IApplicationDbContext.Departments => Departments;
     IQueryable<User> IApplicationDbContext.Users => Users;
     IQueryable<RoleMapping> IApplicationDbContext.RoleMappings => RoleMappings;
+    IQueryable<SecurityRole> IApplicationDbContext.SecurityRoles => SecurityRoles;
+    IQueryable<SecurityRolePermission> IApplicationDbContext.SecurityRolePermissions => SecurityRolePermissions;
     IQueryable<Workflow> IApplicationDbContext.Workflows => Workflows;
     IQueryable<WorkflowVersion> IApplicationDbContext.WorkflowVersions => WorkflowVersions;
     IQueryable<ApprovalMatrixTier> IApplicationDbContext.ApprovalMatrixTiers => ApprovalMatrixTiers;

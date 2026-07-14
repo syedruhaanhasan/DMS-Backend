@@ -12,4 +12,6 @@ public class EmailOptions
     public string? Password { get; set; }
     public string FromAddress { get; set; } = "noreply@wdas.local";
     public string FromDisplayName { get; set; } = "WDAS";
+    /// <summary>SMTP send timeout in milliseconds (default 3s).</summary>
+    public int TimeoutMs { get; set; } = 3000;
 }

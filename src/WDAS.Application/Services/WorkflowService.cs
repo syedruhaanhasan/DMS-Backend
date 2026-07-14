@@ -130,6 +130,8 @@ public class WorkflowService
         workflow.UpdatedAtUtc = _clock.UtcNow;
 
         var latest = await _db.WorkflowVersions
+            .Include(v => v.ApproverGroups).ThenInclude(g => g.Members)
+            .Include(v => v.MatrixTiers)
             .Where(v => v.WorkflowId == workflowId)
             .OrderByDescending(v => v.VersionNumber)
             .FirstAsync(cancellationToken);
@@ -143,6 +145,7 @@ public class WorkflowService
             }
 
             latest.UpdatedAtUtc = _clock.UtcNow;
+            ReplaceApproverConfig(latest, request.Groups, request.MatrixTiers, _clock.UtcNow);
             await SaveAsync(cancellationToken);
         }
         else
@@ -181,40 +184,48 @@ public class WorkflowService
                 now);
             newVersion.NotificationSettingsJson = request.NotificationSettingsJson ?? sourceVersion.NotificationSettingsJson;
 
-            foreach (var sourceGroup in sourceVersion.ApproverGroups.OrderBy(g => g.SequenceOrder))
+            if (request.Groups is not null || request.MatrixTiers is not null)
             {
-                var copiedGroup = new ApproverGroup
+                // Authoritative config from the publisher — do not rely on a follow-up request.
+                ReplaceApproverConfig(newVersion, request.Groups, request.MatrixTiers, now);
+            }
+            else
+            {
+                foreach (var sourceGroup in sourceVersion.ApproverGroups.OrderBy(g => g.SequenceOrder))
                 {
-                    WorkflowVersionId = newVersion.Id,
-                    Name = sourceGroup.Name,
-                    SequenceOrder = sourceGroup.SequenceOrder,
-                    Requirement = sourceGroup.Requirement,
-                    CreatedAtUtc = now
-                };
-
-                foreach (var member in sourceGroup.Members)
-                {
-                    copiedGroup.Members.Add(new ApproverGroupMember
+                    var copiedGroup = new ApproverGroup
                     {
-                        UserId = member.UserId,
+                        WorkflowVersionId = newVersion.Id,
+                        Name = sourceGroup.Name,
+                        SequenceOrder = sourceGroup.SequenceOrder,
+                        Requirement = sourceGroup.Requirement,
+                        CreatedAtUtc = now
+                    };
+
+                    foreach (var member in sourceGroup.Members)
+                    {
+                        copiedGroup.Members.Add(new ApproverGroupMember
+                        {
+                            UserId = member.UserId,
+                            CreatedAtUtc = now
+                        });
+                    }
+
+                    newVersion.ApproverGroups.Add(copiedGroup);
+                }
+
+                foreach (var sourceTier in sourceVersion.MatrixTiers.OrderBy(t => t.SequenceOrder))
+                {
+                    newVersion.MatrixTiers.Add(new ApprovalMatrixTier
+                    {
+                        WorkflowVersionId = newVersion.Id,
+                        SequenceOrder = sourceTier.SequenceOrder,
+                        MinAmount = sourceTier.MinAmount,
+                        MaxAmount = sourceTier.MaxAmount,
+                        ApproverUserIdsJson = sourceTier.ApproverUserIdsJson,
                         CreatedAtUtc = now
                     });
                 }
-
-                newVersion.ApproverGroups.Add(copiedGroup);
-            }
-
-            foreach (var sourceTier in sourceVersion.MatrixTiers.OrderBy(t => t.SequenceOrder))
-            {
-                newVersion.MatrixTiers.Add(new ApprovalMatrixTier
-                {
-                    WorkflowVersionId = newVersion.Id,
-                    SequenceOrder = sourceTier.SequenceOrder,
-                    MinAmount = sourceTier.MinAmount,
-                    MaxAmount = sourceTier.MaxAmount,
-                    ApproverUserIdsJson = sourceTier.ApproverUserIdsJson,
-                    CreatedAtUtc = now
-                });
             }
 
             _db.Add(newVersion);
@@ -245,7 +256,7 @@ public class WorkflowService
 
     public async Task<IReadOnlyList<MatrixTierDto>> GetMatrixTiersAsync(Guid workflowId, CancellationToken cancellationToken = default)
     {
-        var version = await GetEditableVersionAsync(workflowId, cancellationToken);
+        var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeTiers: true);
         return version.MatrixTiers
             .OrderBy(t => t.SequenceOrder)
             .Select(t => new MatrixTierDto(t.Id, t.SequenceOrder, t.MinAmount, t.MaxAmount, Domain.Services.MatrixTierValidator.ParseApproverIds(t.ApproverUserIdsJson)))
@@ -369,12 +380,22 @@ public class WorkflowService
 
         EnsureSuperAdmin();
 
+        // Prefer Active so published approvers are what the editor shows/loads after publish.
         var versionId = await _db.WorkflowVersions
-            .Where(v => v.WorkflowId == workflowId &&
-                        (v.State == WorkflowVersionState.Draft || v.State == WorkflowVersionState.TestPreview))
+            .Where(v => v.WorkflowId == workflowId && v.State == WorkflowVersionState.Active)
             .OrderByDescending(v => v.VersionNumber)
             .Select(v => v.Id)
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (versionId == Guid.Empty)
+        {
+            versionId = await _db.WorkflowVersions
+                .Where(v => v.WorkflowId == workflowId &&
+                            (v.State == WorkflowVersionState.Draft || v.State == WorkflowVersionState.TestPreview))
+                .OrderByDescending(v => v.VersionNumber)
+                .Select(v => v.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
 
         if (versionId == Guid.Empty)
         {
@@ -431,9 +452,14 @@ public class WorkflowService
 
     private void EnsureSuperAdmin()
     {
-        if (!_currentUser.IsInRole(RoleNames.SuperAdmin))
+        if (!_currentUser.IsInRole(RoleNames.SuperAdmin) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.Workflows) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.WorkflowsMake) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.WorkflowsCheck) &&
+            !_currentUser.HasPermission(PermissionCatalog.Actions.WorkflowsPublish) &&
+            !_currentUser.HasPermission(PermissionCatalog.Actions.WorkflowsCreate))
         {
-            throw new DomainException("Only Super Admin can manage workflows.");
+            throw new DomainException("You do not have permission to manage workflows.");
         }
     }
 
@@ -474,6 +500,39 @@ public class WorkflowService
         if (request.NotificationSettingsJson is not null)
         {
             version.NotificationSettingsJson = request.NotificationSettingsJson;
+        }
+    }
+
+    private void ReplaceApproverConfig(
+        WorkflowVersion version,
+        IReadOnlyCollection<ApproverGroupInput>? groups,
+        IReadOnlyCollection<MatrixTierInput>? tiers,
+        DateTime now)
+    {
+        if (groups is not null)
+        {
+            if (version.ApproverGroups.Count > 0)
+            {
+                _db.RemoveRange(version.ApproverGroups.SelectMany(g => g.Members));
+                _db.RemoveRange(version.ApproverGroups);
+                version.ApproverGroups.Clear();
+            }
+
+            AddApproverGroups(version, groups, now);
+        }
+
+        if (tiers is not null)
+        {
+            if (version.MatrixTiers.Count > 0)
+            {
+                _db.RemoveRange(version.MatrixTiers);
+                version.MatrixTiers.Clear();
+            }
+
+            if (tiers.Count > 0)
+            {
+                AddMatrixTiers(version, tiers, now);
+            }
         }
     }
 

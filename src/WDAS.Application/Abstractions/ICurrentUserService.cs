@@ -9,4 +9,5 @@ public interface ICurrentUserService
     IReadOnlyCollection<string> Roles { get; }
     Guid? DepartmentId { get; }
     bool IsInRole(string role);
+    bool HasPermission(string permission);
 }

@@ -1,0 +1,16 @@
+d:\document management\backend\src\WDAS.Application\bin\Debug\net10.0\WDAS.Application.deps.json
+d:\document management\backend\src\WDAS.Application\bin\Debug\net10.0\WDAS.Application.dll
+d:\document management\backend\src\WDAS.Application\bin\Debug\net10.0\WDAS.Application.pdb
+d:\document management\backend\src\WDAS.Application\bin\Debug\net10.0\WDAS.Domain.dll
+d:\document management\backend\src\WDAS.Application\bin\Debug\net10.0\WDAS.Domain.pdb
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.csproj.AssemblyReference.cache
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.GeneratedMSBuildEditorConfig.editorconfig
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.AssemblyInfoInputs.cache
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.AssemblyInfo.cs
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.csproj.CoreCompileInputs.cache
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.sourcelink.json
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.App.A82C2710.Up2Date
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.dll
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\refint\WDAS.Application.dll
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\WDAS.Application.pdb
+d:\document management\backend\src\WDAS.Application\obj\Debug\net10.0\ref\WDAS.Application.dll

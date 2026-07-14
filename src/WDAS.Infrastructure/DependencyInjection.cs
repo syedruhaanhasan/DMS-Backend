@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditWriter, AuditWriter>();
 
         services.AddSingleton<IAuthorizationHandler, SuperAdminAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -105,6 +106,19 @@ public static class DependencyInjection
             options.AddPolicy("SuperAdmin", policy => policy.RequireRole(RoleNames.SuperAdmin));
             options.AddPolicy("WorkflowAdmin", policy => policy.RequireRole(RoleNames.SuperAdmin, RoleNames.DepartmentAdmin));
             options.AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
+
+            foreach (var key in PermissionCatalog.AllKeys)
+            {
+                var permission = key;
+                options.AddPolicy($"perm:{permission}", policy =>
+                    policy.Requirements.Add(new PermissionRequirement(permission)));
+            }
+
+            foreach (var module in PermissionCatalog.ConfigModules)
+            {
+                options.AddPolicy($"perm:{module.Base}.write", policy =>
+                    policy.Requirements.Add(new PermissionRequirement(module.Make, module.Check)));
+            }
         });
 
         services.AddApplication();

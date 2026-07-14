@@ -24,7 +24,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("sync")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.ad.check")]
     public async Task<ActionResult<SyncResultDto>> Sync(CancellationToken cancellationToken)
     {
         return Ok(await _authService.SyncDirectoryAsync(cancellationToken));
@@ -52,7 +52,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.users.make")]
     public async Task<ActionResult<UserSummaryDto>> CreateUser([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         var user = await _authService.CreateUserAsync(request, cancellationToken);
@@ -60,21 +60,21 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:guid}/role")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.users.check")]
     public async Task<ActionResult<UserSummaryDto>> UpdateRole(Guid id, [FromBody] UpdateUserRoleRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.UpdateUserRoleAsync(id, request, cancellationToken));
     }
 
     [HttpPut("{id:guid}/status")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.users.check")]
     public async Task<ActionResult<UserSummaryDto>> SetUserStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.SetUserActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.users.check")]
     public async Task<IActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
     {
         await _authService.DeleteUserAsync(id, cancellationToken);
@@ -115,7 +115,7 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.departments.make")]
     public async Task<ActionResult<DepartmentDto>> CreateDepartment([FromBody] CreateDepartmentRequest request, CancellationToken cancellationToken)
     {
         var department = await _authService.CreateDepartmentAsync(request, cancellationToken);
@@ -123,14 +123,14 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.departments.write")]
     public async Task<ActionResult<DepartmentDto>> UpdateDepartment(Guid id, [FromBody] UpdateDepartmentRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.UpdateDepartmentAsync(id, request, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.departments.check")]
     public async Task<IActionResult> DeleteDepartment(Guid id, CancellationToken cancellationToken)
     {
         await _authService.DeleteDepartmentAsync(id, cancellationToken);
@@ -157,7 +157,7 @@ public class DocumentTypesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.document_types.make")]
     public async Task<ActionResult<DocumentTypeDto>> CreateDocumentType([FromBody] CreateDocumentTypeRequest request, CancellationToken cancellationToken)
     {
         var documentType = await _documentTypeService.CreateAsync(request, cancellationToken);
@@ -165,14 +165,14 @@ public class DocumentTypesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.document_types.write")]
     public async Task<ActionResult<DocumentTypeDto>> UpdateDocumentType(Guid id, [FromBody] UpdateDocumentTypeRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _documentTypeService.UpdateAsync(id, request, cancellationToken));
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = "SuperAdmin")]
+    [Authorize(Policy = "perm:config.document_types.check")]
     public async Task<IActionResult> DeleteDocumentType(Guid id, CancellationToken cancellationToken)
     {
         await _documentTypeService.DeleteAsync(id, cancellationToken);

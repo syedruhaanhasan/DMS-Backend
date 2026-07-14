@@ -180,9 +180,13 @@ public class DocumentTypeService
 
     private void EnsureSuperAdmin()
     {
-        if (!_currentUser.IsInRole(RoleNames.SuperAdmin))
+        if (!_currentUser.IsInRole(RoleNames.SuperAdmin) &&
+            !_currentUser.HasPermission(PermissionCatalog.Actions.DocumentTypesManage) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.DocumentTypes) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.DocumentTypesMake) &&
+            !_currentUser.HasPermission(PermissionCatalog.Config.DocumentTypesCheck))
         {
-            throw new DomainException("Only Super Admin can manage document types.");
+            throw new DomainException("You do not have permission to manage document types.");
         }
     }
 

@@ -44,7 +44,9 @@ public record UpdateWorkflowRequest(
     int? SlaThresholdHours,
     bool EscalationEnabled,
     WorkflowVersionState TargetState,
-    string? NotificationSettingsJson = null);
+    string? NotificationSettingsJson = null,
+    IReadOnlyCollection<ApproverGroupInput>? Groups = null,
+    IReadOnlyCollection<MatrixTierInput>? MatrixTiers = null);
 
 public record MatrixTierDto(
     Guid Id,

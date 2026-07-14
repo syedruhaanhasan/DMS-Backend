@@ -110,8 +110,19 @@ public class DevIdentityProvider : IIdentityProvider
             user.DisplayName,
             user.Email,
             user.DepartmentId,
-            [user.Role]));
+            [ToRoleCode(user.Role)]));
     }
+
+    private static string ToRoleCode(ApplicationRole role) => role switch
+    {
+        ApplicationRole.SuperAdmin => Application.RoleNames.SuperAdmin,
+        ApplicationRole.DepartmentAdmin => Application.RoleNames.DepartmentAdmin,
+        ApplicationRole.MakerOwner => Application.RoleNames.MakerOwner,
+        ApplicationRole.Approver => Application.RoleNames.Approver,
+        ApplicationRole.Auditor => Application.RoleNames.Auditor,
+        ApplicationRole.ItAdmin => Application.RoleNames.ItAdmin,
+        _ => role.ToString(),
+    };
 
     public Task<IReadOnlyList<DirectoryUserSnapshot>> GetDirectoryUsersAsync(CancellationToken cancellationToken = default)
     {

@@ -3,10 +3,8 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
-using WDAS.Domain.Enums;
 
 namespace WDAS.Infrastructure.Identity;
 
@@ -39,9 +37,9 @@ public class JwtTokenService : IJwtTokenService
             new("department_id", user.DepartmentId.ToString())
         };
 
-        foreach (var role in user.Roles)
+        foreach (var roleCode in user.RoleCodes.Distinct())
         {
-            claims.Add(new Claim(ClaimTypes.Role, ToRoleName(role)));
+            claims.Add(new Claim(ClaimTypes.Role, roleCode));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
@@ -78,15 +76,4 @@ public class JwtTokenService : IJwtTokenService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-
-    private static string ToRoleName(ApplicationRole role) => role switch
-    {
-        ApplicationRole.SuperAdmin => RoleNames.SuperAdmin,
-        ApplicationRole.DepartmentAdmin => RoleNames.DepartmentAdmin,
-        ApplicationRole.MakerOwner => RoleNames.MakerOwner,
-        ApplicationRole.Approver => RoleNames.Approver,
-        ApplicationRole.Auditor => RoleNames.Auditor,
-        ApplicationRole.ItAdmin => RoleNames.ItAdmin,
-        _ => role.ToString()
-    };
 }

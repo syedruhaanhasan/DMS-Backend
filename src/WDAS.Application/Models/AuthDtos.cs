@@ -6,6 +6,8 @@ public record LoginRequest(string Username, string Password);
 
 public record LoginResponse(string AccessToken, DateTime ExpiresAtUtc, UserSummaryDto User);
 
+public record AssignedRoleDto(Guid Id, string Name, string Code);
+
 public record UserSummaryDto(
     Guid Id,
     string AdObjectId,
@@ -15,7 +17,8 @@ public record UserSummaryDto(
     string Title,
     Guid DepartmentId,
     string DepartmentName,
-    IReadOnlyCollection<ApplicationRole> Roles,
+    IReadOnlyCollection<AssignedRoleDto> Roles,
+    IReadOnlyCollection<string> Permissions,
     bool IsActive);
 
 public record DepartmentDto(Guid Id, string Name, string Code, Guid? ParentDepartmentId, bool IsActive);
@@ -39,12 +42,15 @@ public record CreateUserRequest(
     string Email,
     string Title,
     Guid DepartmentId,
+    List<Guid>? RoleIds = null,
+    /// <summary>Legacy enum roles — mapped to seeded SecurityRole ids when RoleIds is empty.</summary>
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null,
     UserAccountType AccountType = UserAccountType.Local,
     string? AdObjectId = null);
 
 public record UpdateUserRoleRequest(
+    List<Guid>? RoleIds = null,
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null);
 

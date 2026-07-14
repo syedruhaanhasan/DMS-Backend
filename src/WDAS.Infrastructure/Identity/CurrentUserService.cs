@@ -1,17 +1,22 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
+using WDAS.Infrastructure.Persistence;
 
 namespace WDAS.Infrastructure.Identity;
 
 public class CurrentUserService : ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly WdasDbContext _db;
+    private HashSet<string>? _permissions;
 
-    public CurrentUserService(IHttpContextAccessor httpContextAccessor)
+    public CurrentUserService(IHttpContextAccessor httpContextAccessor, WdasDbContext db)
     {
         _httpContextAccessor = httpContextAccessor;
+        _db = db;
     }
 
     public Guid UserId => Guid.Parse(GetClaim(ClaimTypes.NameIdentifier) ?? GetClaim("sub") ?? throw new InvalidOperationException("User is not authenticated."));
@@ -53,6 +58,42 @@ public class CurrentUserService : ICurrentUserService
         }
 
         return Roles.Contains(role);
+    }
+
+    public bool HasPermission(string permission)
+    {
+        if (string.IsNullOrWhiteSpace(permission))
+        {
+            return false;
+        }
+
+        if (IsInRole(RoleNames.SuperAdmin))
+        {
+            return true;
+        }
+
+        _permissions ??= LoadPermissions();
+        return _permissions.Contains(permission);
+    }
+
+    private HashSet<string> LoadPermissions()
+    {
+        try
+        {
+            var userId = UserId;
+            var keys = _db.RoleMappings
+                .AsNoTracking()
+                .Where(m => m.UserId == userId && m.Role.IsActive)
+                .SelectMany(m => m.Role.Permissions.Select(p => p.PermissionKey))
+                .Distinct()
+                .ToList();
+
+            return PermissionCatalog.ExpandImplied(keys).ToHashSet(StringComparer.Ordinal);
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private string? GetClaim(string type) => _httpContextAccessor.HttpContext?.User.FindFirst(type)?.Value;

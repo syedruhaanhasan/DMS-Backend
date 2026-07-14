@@ -47,8 +47,33 @@ public class RoleMappingConfiguration : IEntityTypeConfiguration<RoleMapping>
 {
     public void Configure(EntityTypeBuilder<RoleMapping> builder)
     {
-        builder.HasIndex(r => new { r.UserId, r.Role, r.DepartmentId }).IsUnique();
+        builder.HasIndex(r => new { r.UserId, r.RoleId, r.DepartmentId }).IsUnique();
         builder.HasOne(r => r.User).WithMany(u => u.RoleMappings).HasForeignKey(r => r.UserId);
+        builder.HasOne(r => r.Role).WithMany(role => role.RoleMappings).HasForeignKey(r => r.RoleId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(r => r.Department).WithMany().HasForeignKey(r => r.DepartmentId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class SecurityRoleConfiguration : IEntityTypeConfiguration<SecurityRole>
+{
+    public void Configure(EntityTypeBuilder<SecurityRole> builder)
+    {
+        builder.ToTable("SecurityRoles");
+        builder.HasIndex(r => r.Code).IsUnique();
+        builder.Property(r => r.Name).HasMaxLength(120).IsRequired();
+        builder.Property(r => r.Code).HasMaxLength(64).IsRequired();
+        builder.Property(r => r.Description).HasMaxLength(1000);
+    }
+}
+
+public class SecurityRolePermissionConfiguration : IEntityTypeConfiguration<SecurityRolePermission>
+{
+    public void Configure(EntityTypeBuilder<SecurityRolePermission> builder)
+    {
+        builder.ToTable("SecurityRolePermissions");
+        builder.HasIndex(p => new { p.RoleId, p.PermissionKey }).IsUnique();
+        builder.Property(p => p.PermissionKey).HasMaxLength(120).IsRequired();
+        builder.HasOne(p => p.Role).WithMany(r => r.Permissions).HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
