@@ -47,9 +47,14 @@ public static class MatrixTierValidator
                     throw new DomainException("Matrix tiers cannot overlap.");
                 }
 
-                if (tier.MinAmount != previous.MaxAmount.Value + 0.01m)
+                // Amounts are whole PKR in the UI (e.g. 0–100000 then 100001+).
+                // Also accept +0.01 for older seed/decimal configs.
+                var expectedWhole = previous.MaxAmount.Value + 1m;
+                var expectedDecimal = previous.MaxAmount.Value + 0.01m;
+                if (tier.MinAmount != expectedWhole && tier.MinAmount != expectedDecimal)
                 {
-                    throw new DomainException("Matrix tiers cannot have gaps.");
+                    throw new DomainException(
+                        $"Matrix tiers cannot have gaps. Band {i + 1} should start at {expectedWhole} (immediately after {previous.MaxAmount.Value}).");
                 }
             }
         }

@@ -87,17 +87,31 @@ public class WorkflowService
         }
 
         var now = _clock.UtcNow;
+        var publishNow = request.PublishImmediately &&
+            (_currentUser.IsInRole(RoleNames.SuperAdmin) ||
+             _currentUser.HasPermission(PermissionCatalog.Config.WorkflowsCheck) ||
+             _currentUser.HasPermission(PermissionCatalog.Actions.WorkflowsPublish));
+
         var workflow = new Workflow
         {
             DepartmentId = request.DepartmentId,
             Name = name,
             DocumentType = documentType,
             Description = request.Description,
-            IsActive = true,
+            IsActive = publishNow,
             CreatedAtUtc = now
         };
 
-        var version = CreateVersion(workflow, request.ApprovalMode, request.ApprovalSequence, request.ReturnResumePolicy, request.SlaThresholdHours, request.EscalationEnabled, 1, WorkflowVersionState.Active, now);
+        var version = CreateVersion(
+            workflow,
+            request.ApprovalMode,
+            request.ApprovalSequence,
+            request.ReturnResumePolicy,
+            request.SlaThresholdHours,
+            request.EscalationEnabled,
+            1,
+            publishNow ? WorkflowVersionState.Active : WorkflowVersionState.Draft,
+            now);
         version.NotificationSettingsJson = request.NotificationSettingsJson;
 
         if (request.Groups is { Count: > 0 })
@@ -142,6 +156,7 @@ public class WorkflowService
             if (request.TargetState == WorkflowVersionState.Active)
             {
                 latest.ActivatedAtUtc = _clock.UtcNow;
+                workflow.IsActive = true;
             }
 
             latest.UpdatedAtUtc = _clock.UtcNow;
@@ -163,6 +178,7 @@ public class WorkflowService
                             .SetProperty(v => v.State, WorkflowVersionState.Retired)
                             .SetProperty(v => v.UpdatedAtUtc, now),
                         cancellationToken);
+                workflow.IsActive = true;
             }
 
             var sourceVersion = await _db.WorkflowVersions
@@ -589,6 +605,11 @@ public class WorkflowService
             .OrderByDescending(v => v.VersionNumber)
             .FirstOrDefault();
 
+        // Pending maker submissions have Draft/TestPreview and no Active version yet.
+        var currentVersion = activeVersion ?? workflow.Versions
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+
         return new WorkflowDto(
             workflow.Id,
             workflow.DepartmentId,
@@ -596,7 +617,7 @@ public class WorkflowService
             workflow.DocumentType,
             workflow.Description,
             workflow.IsActive,
-            activeVersion is null ? null : MapVersion(activeVersion));
+            currentVersion is null ? null : MapVersion(currentVersion));
     }
 
     private static WorkflowVersionSummaryDto MapVersion(WorkflowVersion version) =>

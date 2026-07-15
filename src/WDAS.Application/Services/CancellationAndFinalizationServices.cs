@@ -102,6 +102,7 @@ public class CancellationService
         new(
             document.Id,
             document.RecordNumber,
+            document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
             document.OwnerUserId,
             document.Owner.DisplayName,
             document.DepartmentId,
@@ -119,12 +120,23 @@ public class CancellationService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
+            ParseAdHocIds(document.AdHocApproverUserIdsJson),
             document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps.OrderBy(s => s.StepOrder).Select(s => new WorkflowStepDto(
                 s.Id, s.StepOrder, s.ApproverUserId, s.ApproverUser?.DisplayName, s.GroupName,
                 s.Status, s.ActivatedAtUtc, s.CompletedAtUtc, s.SlaDueAtUtc, s.IsSlaBreached,
                 s.Actions.OrderBy(a => a.ActionAtUtc).Select(a => new WorkflowStepActionDto(
                     a.Id, a.ActorUserId, a.Actor?.DisplayName ?? "Unknown", a.ActionType, a.Comment, a.ActionAtUtc)).ToList())).ToList());
+
+    private static List<Guid>? ParseAdHocIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<List<Guid>>(json);
+    }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

@@ -40,7 +40,19 @@ public class MatrixTierValidatorTests
         var tiers = new List<ApprovalMatrixTier>
         {
             CreateTier(1, 0, 10000, [Guid.NewGuid()]),
-            CreateTier(2, 10000.01m, null, [Guid.NewGuid(), Guid.NewGuid()])
+            CreateTier(2, 10001, null, [Guid.NewGuid(), Guid.NewGuid()])
+        };
+
+        MatrixTierValidator.Validate(tiers);
+    }
+
+    [Fact]
+    public void Validate_AllowsLegacyDecimalContinuity()
+    {
+        var tiers = new List<ApprovalMatrixTier>
+        {
+            CreateTier(1, 0, 10000, [Guid.NewGuid()]),
+            CreateTier(2, 10000.01m, null, [Guid.NewGuid()])
         };
 
         MatrixTierValidator.Validate(tiers);

@@ -33,7 +33,9 @@ public record CreateWorkflowRequest(
     bool EscalationEnabled = true,
     string? NotificationSettingsJson = null,
     IReadOnlyCollection<ApproverGroupInput>? Groups = null,
-    IReadOnlyCollection<MatrixTierInput>? MatrixTiers = null);
+    IReadOnlyCollection<MatrixTierInput>? MatrixTiers = null,
+    /// <summary>When true (checker), create Active immediately. Makers should leave this false → Pending approval.</summary>
+    bool PublishImmediately = false);
 
 public record UpdateWorkflowRequest(
     string Name,

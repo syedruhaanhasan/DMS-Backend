@@ -5,6 +5,7 @@ namespace WDAS.Application.Models;
 public record DocumentDto(
     Guid Id,
     long RecordNumber,
+    int RevisionNumber,
     Guid OwnerUserId,
     string OwnerDisplayName,
     Guid DepartmentId,
@@ -22,6 +23,7 @@ public record DocumentDto(
     string? ArchiveDocumentId,
     DateTime? FinalizedAtUtc,
     string? CancellationReason,
+    IReadOnlyCollection<Guid>? AdHocApproverUserIds,
     IReadOnlyCollection<DocumentRecipientDto> Recipients,
     IReadOnlyCollection<WorkflowStepDto> WorkflowSteps);
 
@@ -45,7 +47,7 @@ public record UpdateDocumentRequest(
     string BodyHtml,
     decimal? Amount,
     DocumentPriority Priority,
-    IReadOnlyCollection<DocumentRecipientInput> Recipients,
+    IReadOnlyCollection<DocumentRecipientInput>? Recipients,
     IReadOnlyCollection<Guid>? AdHocApproverUserIds,
     bool Submit,
     string? IdempotencyKey);

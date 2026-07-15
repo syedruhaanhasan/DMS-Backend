@@ -72,6 +72,11 @@ public class ExceptionHandlingMiddleware
 
     private static async Task WriteErrorAsync(HttpContext context, HttpStatusCode statusCode, string message)
     {
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
         context.Response.StatusCode = (int)statusCode;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = message }));

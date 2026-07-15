@@ -6,6 +6,8 @@ namespace WDAS.Domain.Entities;
 public class Document : Entity
 {
     public long RecordNumber { get; set; }
+    /// <summary>Document content revision (v1, v2, …). Bumps when owner revises after rejection.</summary>
+    public int RevisionNumber { get; set; } = 1;
     public Guid OwnerUserId { get; set; }
     public Guid DepartmentId { get; set; }
     public Guid WorkflowId { get; set; }

@@ -48,14 +48,21 @@ public class AuditViewMiddleware
             documentId = docId;
         }
 
-        await auditWriter.WriteAsync(new AuditWriteRequest(
-            AuditEventType.View,
-            $"GET {path}",
-            documentId,
-            EntityType: "HttpRequest",
-            EntityId: path,
-            ActorUserId: currentUser.UserId),
-            context.RequestAborted);
+        try
+        {
+            await auditWriter.WriteAsync(new AuditWriteRequest(
+                AuditEventType.View,
+                $"GET {path}",
+                documentId,
+                EntityType: "HttpRequest",
+                EntityId: path,
+                ActorUserId: currentUser.UserId),
+                context.RequestAborted);
+        }
+        catch (Exception)
+        {
+            // Never fail the user request after the response has already started.
+        }
     }
 }
 

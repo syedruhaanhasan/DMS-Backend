@@ -153,8 +153,25 @@ public class WorkflowEngineService
         }
 
         await SaveAsync(cancellationToken);
-        await DispatchWorkflowNotificationAsync(document, step, actionType, cancellationToken);
-        await WriteAuditAsync(document, step, actionType, request, cancellationToken);
+
+        try
+        {
+            await DispatchWorkflowNotificationAsync(document, step, actionType, cancellationToken);
+        }
+        catch
+        {
+            // Approval must not fail because notification delivery failed.
+        }
+
+        try
+        {
+            await WriteAuditAsync(document, step, actionType, request, cancellationToken);
+        }
+        catch
+        {
+            // Approval must not fail because audit append raced on SequenceNumber.
+        }
+
         return await LoadDocumentDtoAsync(document.Id, cancellationToken);
     }
 
@@ -306,6 +323,7 @@ public class WorkflowEngineService
         new(
             document.Id,
             document.RecordNumber,
+            document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
             document.OwnerUserId,
             document.Owner.DisplayName,
             document.DepartmentId,
@@ -323,6 +341,7 @@ public class WorkflowEngineService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
+            ParseAdHocIds(document.AdHocApproverUserIdsJson),
             document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
@@ -345,6 +364,16 @@ public class WorkflowEngineService
                         a.Comment,
                         a.ActionAtUtc)).ToList()))
                 .ToList());
+
+    private static List<Guid>? ParseAdHocIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        return System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(json);
+    }
 
     private async Task<Guid?> ResolveOnBehalfOfAsync(WorkflowStep step, CancellationToken cancellationToken)
     {

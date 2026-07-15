@@ -66,6 +66,12 @@ public class DocumentsController : ControllerBase
         return Ok(document);
     }
 
+    [HttpPost("{id:guid}/revise")]
+    public async Task<ActionResult<DocumentDto>> ReviseRejectedDocument(Guid id, CancellationToken cancellationToken)
+    {
+        return Ok(await _documentService.ReviseRejectedDocumentAsync(id, cancellationToken));
+    }
+
     private void SchedulePostSubmitSideEffects(Guid documentId)
     {
         // Run indexing/notifications after the response so submit feels instant even if SMTP is slow/down.

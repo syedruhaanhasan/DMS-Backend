@@ -406,6 +406,9 @@ namespace WDAS.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("RecordNumber"));
 
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 

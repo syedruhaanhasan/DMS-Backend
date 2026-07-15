@@ -26,6 +26,7 @@ public static class DatabaseSeeder
         }
 
         await EnsureWorkflowVersionColumnsAsync(db);
+        await EnsureDocumentRevisionColumnAsync(db);
         await EnsureDocumentTypesTableAsync(db);
         await EnsureDocumentTypeColumnsAsync(db);
         await SecurityRolesBootstrap.EnsureSchemaAndSeedAsync(db);
@@ -404,6 +405,28 @@ public static class DatabaseSeeder
             try
             {
                 await db.Database.ExecuteSqlRawAsync("ALTER TABLE WorkflowVersions ADD COLUMN ApprovalSequence INTEGER NOT NULL DEFAULT 0");
+            }
+            catch
+            {
+                /* column may already exist */
+            }
+        }
+    }
+
+    private static async Task EnsureDocumentRevisionColumnAsync(WdasDbContext db)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE "Documents"
+                ADD COLUMN IF NOT EXISTS "RevisionNumber" integer NOT NULL DEFAULT 1;
+                """);
+        }
+        catch
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("ALTER TABLE Documents ADD COLUMN RevisionNumber INTEGER NOT NULL DEFAULT 1");
             }
             catch
             {

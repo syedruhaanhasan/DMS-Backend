@@ -122,6 +122,8 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.Property(d => d.RecordNumber)
             .ValueGeneratedOnAdd()
             .UseIdentityColumn();
+        builder.Property(d => d.RecordNumber)
+            .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
 
         builder.HasIndex(d => d.RecordNumber).IsUnique();
         builder.HasIndex(d => d.SubmitIdempotencyKey);

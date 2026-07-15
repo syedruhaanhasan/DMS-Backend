@@ -68,6 +68,7 @@ public class DocumentService
             Amount = request.Amount,
             Priority = request.Priority,
             Status = DocumentStatus.Draft,
+            RevisionNumber = 1,
             AdHocApproverUserIdsJson = request.AdHocApproverUserIds is null
                 ? null
                 : JsonSerializer.Serialize(request.AdHocApproverUserIds),
@@ -100,10 +101,15 @@ public class DocumentService
 
     public async Task<DocumentDto> UpdateDocumentAsync(Guid documentId, UpdateDocumentRequest request, CancellationToken cancellationToken = default)
     {
-        var document = await _db.Documents
-            .Include(d => d.Owner)
-            .Include(d => d.Recipients)
-            .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+        // Avoid loading recipients when submitting — tracked recipient rows were causing
+        // DELETE+UPDATE concurrency conflicts in the same SaveChanges batch.
+        IQueryable<Document> query = _db.Documents.Include(d => d.Owner);
+        if (!request.Submit && request.Recipients is not null)
+        {
+            query = query.Include(d => d.Recipients);
+        }
+
+        var document = await query.FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)
             ?? throw new DomainException("Document not found.");
         EnsureOwner(document);
 
@@ -122,30 +128,43 @@ public class DocumentService
             throw new DomainException("Only draft or returned documents can be edited.");
         }
 
-        document.ToRecipients = request.ToRecipients;
         document.Subject = request.Subject;
         document.BodyHtml = request.BodyHtml;
         document.Amount = request.Amount;
         document.Priority = request.Priority;
-        document.AdHocApproverUserIdsJson = request.AdHocApproverUserIds is null
-            ? null
-            : JsonSerializer.Serialize(request.AdHocApproverUserIds);
+        if (!string.IsNullOrWhiteSpace(request.ToRecipients))
+        {
+            document.ToRecipients = request.ToRecipients;
+        }
+
+        if (request.AdHocApproverUserIds is not null)
+        {
+            document.AdHocApproverUserIdsJson = request.AdHocApproverUserIds.Count == 0
+                ? null
+                : JsonSerializer.Serialize(request.AdHocApproverUserIds);
+        }
+
         document.UpdatedAtUtc = _clock.UtcNow;
 
-        // Replace recipients via the already-tracked collection to avoid DELETE+UPDATE conflicts.
-        var previousRecipients = document.Recipients.ToList();
-        document.Recipients.Clear();
-        _db.RemoveRange(previousRecipients);
-
-        foreach (var recipient in request.Recipients)
+        // Never mutate recipients during submit — only when explicitly editing without submit.
+        if (!request.Submit && request.Recipients is not null)
         {
-            document.Recipients.Add(new DocumentRecipient
+            var previousRecipients = document.Recipients.ToList();
+            foreach (var previous in previousRecipients)
             {
-                DocumentId = document.Id,
-                RecipientName = recipient.RecipientName,
-                RecipientEmail = recipient.RecipientEmail,
-                CreatedAtUtc = _clock.UtcNow
-            });
+                document.Recipients.Remove(previous);
+            }
+
+            foreach (var recipient in request.Recipients)
+            {
+                document.Recipients.Add(new DocumentRecipient
+                {
+                    DocumentId = document.Id,
+                    RecipientName = recipient.RecipientName,
+                    RecipientEmail = recipient.RecipientEmail,
+                    CreatedAtUtc = _clock.UtcNow
+                });
+            }
         }
 
         if (request.Submit)
@@ -164,6 +183,39 @@ public class DocumentService
         var document = await LoadDocumentAsync(documentId, cancellationToken);
         EnsureCanView(document);
         return MapDocument(document);
+    }
+
+    /// <summary>
+    /// Owner reopens a rejected document for correction. Bumps revision (v2, v3, …)
+    /// and unlocks the body so the same document can be edited and resubmitted.
+    /// </summary>
+    public async Task<DocumentDto> ReviseRejectedDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var document = await _db.Documents
+            .Include(d => d.Owner)
+            .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+            ?? throw new DomainException("Document not found.");
+        EnsureOwner(document);
+
+        if (document.Status == DocumentStatus.ReturnedForCorrection && !document.IsBodyLocked)
+        {
+            // Idempotent: already opened for correction (e.g. prior Update click succeeded).
+            return await GetDocumentDtoAsync(document.Id, cancellationToken);
+        }
+
+        if (document.Status != DocumentStatus.Rejected)
+        {
+            throw new DomainException("Only rejected documents can be revised for a new version.");
+        }
+
+        var now = _clock.UtcNow;
+        document.RevisionNumber = document.RevisionNumber < 1 ? 2 : document.RevisionNumber + 1;
+        document.Status = DocumentStatus.ReturnedForCorrection;
+        document.IsBodyLocked = false;
+        document.UpdatedAtUtc = now;
+
+        await SaveAsync(cancellationToken);
+        return await GetDocumentDtoAsync(document.Id, cancellationToken);
     }
 
     public async Task DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
@@ -295,17 +347,42 @@ public class DocumentService
 
         if (document.Status == DocumentStatus.ReturnedForCorrection)
         {
-            var existingSteps = await _db.WorkflowSteps
+            // Use store ExecuteDelete so tracked entities / cascade order cannot cause concurrency conflicts.
+            var stepIds = await _db.WorkflowSteps
+                .AsNoTracking()
                 .Where(s => s.DocumentId == document.Id)
-                .Include(s => s.Actions)
+                .Select(s => s.Id)
                 .ToListAsync(cancellationToken);
 
-            foreach (var existingStep in existingSteps)
+            if (stepIds.Count > 0)
             {
-                _db.RemoveRange(existingStep.Actions);
-            }
+                var actionIds = await _db.WorkflowStepActions
+                    .AsNoTracking()
+                    .Where(a => stepIds.Contains(a.WorkflowStepId))
+                    .Select(a => a.Id)
+                    .ToListAsync(cancellationToken);
 
-            _db.RemoveRange(existingSteps);
+                if (actionIds.Count > 0)
+                {
+                    await _db.Attachments
+                        .Where(a => a.WorkflowStepActionId != null && actionIds.Contains(a.WorkflowStepActionId.Value))
+                        .ExecuteUpdateAsync(
+                            setters => setters.SetProperty(a => a.WorkflowStepActionId, (Guid?)null),
+                            cancellationToken);
+                }
+
+                await _db.ExternalApproverSessions
+                    .Where(s => stepIds.Contains(s.WorkflowStepId))
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                await _db.WorkflowStepActions
+                    .Where(a => stepIds.Contains(a.WorkflowStepId))
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                await _db.WorkflowSteps
+                    .Where(s => s.DocumentId == document.Id)
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
         }
 
         var resolvedSteps = _chainResolver.Resolve(workflowVersion, document.Amount, ParseAdHocIds(document.AdHocApproverUserIdsJson));
@@ -448,6 +525,7 @@ public class DocumentService
         new(
             document.Id,
             document.RecordNumber,
+            document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
             document.OwnerUserId,
             document.Owner?.DisplayName ?? "Unknown",
             document.DepartmentId,
@@ -465,6 +543,7 @@ public class DocumentService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
+            ParseAdHocIds(document.AdHocApproverUserIdsJson),
             document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
