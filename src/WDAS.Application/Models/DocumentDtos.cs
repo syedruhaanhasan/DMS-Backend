@@ -27,7 +27,14 @@ public record DocumentDto(
     IReadOnlyCollection<DocumentRecipientDto> Recipients,
     IReadOnlyCollection<WorkflowStepDto> WorkflowSteps);
 
-public record DocumentRecipientDto(string Id, string RecipientName, string? RecipientEmail);
+public record DocumentRecipientDto(
+    string Id,
+    string RecipientName,
+    string? RecipientEmail,
+    string? ReviewerUserId,
+    string? AddedById);
+
+public record AddReviewerRequest(string ReviewerUserId);
 
 public record CreateDocumentRequest(
     string WorkflowId,
@@ -54,7 +61,7 @@ public record UpdateDocumentRequest(
 
 public record SubmitDocumentRequest(string? IdempotencyKey);
 
-public record DocumentRecipientInput(string RecipientName, string? RecipientEmail);
+public record DocumentRecipientInput(string RecipientName, string? RecipientEmail, string? ReviewerUserId = null);
 
 public record WorkflowStepDto(
     string Id,

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
 using WDAS.Domain.Exceptions;

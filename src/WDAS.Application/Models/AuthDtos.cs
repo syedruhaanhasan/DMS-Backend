@@ -23,7 +23,9 @@ public record UserSummaryDto(
     string DepartmentName,
     IReadOnlyCollection<AssignedRoleDto> Roles,
     IReadOnlyCollection<string> Permissions,
-    bool IsActive);
+    bool IsActive,
+    string? UserTypeId = null,
+    string? UserTypeName = null);
 
 public record DepartmentDto(string Id, string Name, string Code, string? ParentDepartmentId, bool IsActive);
 
@@ -51,7 +53,8 @@ public record CreateUserRequest(
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null,
     UserAccountType AccountType = UserAccountType.Local,
-    string? AdObjectId = null);
+    string? AdObjectId = null,
+    string? UserTypeId = null);
 
 public record UpdateUserRoleRequest(
     List<string>? RoleIds = null,
@@ -69,7 +72,8 @@ public record UpdateUserRequest(
     List<string>? RoleIds = null,
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null,
-    bool? IsActive = null);
+    bool? IsActive = null,
+    string? UserTypeId = null);
 
 public record UserPreferencesDto(
     string? NotificationPreferencesJson,

@@ -11,6 +11,7 @@ public class User : Entity
     public string? PhoneNumber { get; set; }
     public string Title { get; set; } = string.Empty;
     public int DepartmentId { get; set; }
+    public int? UserTypeId { get; set; }
     public int? ManagerUserId { get; set; }
     public bool IsEnabledInAd { get; set; } = true;
     public bool IsDisabledInApp { get; set; }
@@ -22,6 +23,7 @@ public class User : Entity
     public string PreferredLanguage { get; set; } = "en";
 
     public Department Department { get; set; } = null!;
+    public UserType? UserType { get; set; }
     public User? Manager { get; set; }
     public ICollection<User> DirectReports { get; set; } = new List<User>();
     public ICollection<RoleMapping> RoleMappings { get; set; } = new List<RoleMapping>();

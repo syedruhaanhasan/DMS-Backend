@@ -272,6 +272,19 @@ public static class PermissionCatalog
     public static IReadOnlyList<string> ForLegacyRole(string roleCode) => roleCode switch
     {
         RoleNames.SuperAdmin => AllKeys,
+        RoleNames.ConfigAdmin => ExpandImplied(
+        [
+            Nav.Config, Nav.Dashboard, Nav.Settings,
+            Config.DepartmentsMake, Config.DepartmentsCheck,
+            Config.UsersMake, Config.UsersCheck,
+            Config.RolesMake, Config.RolesCheck,
+            Config.ActiveDirectoryMake, Config.ActiveDirectoryCheck,
+            Config.WorkflowsMake, Config.WorkflowsCheck,
+            Config.DocumentTypesMake, Config.DocumentTypesCheck,
+            Config.ApprovalModesMake, Config.ApprovalModesCheck,
+            Config.ExternalApproversMake, Config.ExternalApproversCheck,
+            Config.DelegationMake, Config.DelegationCheck,
+        ]),
         RoleNames.DepartmentAdmin => ExpandImplied(
         [
             Nav.Dashboard, Nav.DeptDashboard, Nav.Inbox, Nav.Repository, Nav.Reports, Nav.Settings,

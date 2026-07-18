@@ -26,6 +26,7 @@ public interface IApplicationDbContext
     IQueryable<DocumentSearchIndex> DocumentSearchIndexes { get; }
     IQueryable<PushDeviceRegistration> PushDeviceRegistrations { get; }
     IQueryable<DocumentTypeDefinition> DocumentTypeDefinitions { get; }
+    IQueryable<UserType> UserTypes { get; }
     IQueryable<ActiveDirectorySetting> ActiveDirectorySettings { get; }
     IQueryable<RevokedToken> RevokedTokens { get; }
 

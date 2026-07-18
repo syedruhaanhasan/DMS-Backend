@@ -52,7 +52,7 @@ public class DashboardService
             .Include(d => d.Workflow)
             .Include(d => d.WorkflowSteps)
             .Where(d => d.OwnerUserId == userId && d.Status != DocumentStatus.Finalized)
-            .OrderByDescending(d => d.UpdatedAtUtc)
+            .OrderByDescending(d => d.UpdatedAtUtc ?? d.CreatedAtUtc)
             .Take(50)
             .ToListAsync(cancellationToken);
 
@@ -71,6 +71,24 @@ public class DashboardService
             delegatedPending,
             myDocuments.Select(d => MapItem(d, d.WorkflowSteps.FirstOrDefault(st => st.Status == WorkflowStepStatus.Active), false)).ToList(),
             recentlyCompleted.Select(d => MapItem(d, null, false)).ToList());
+    }
+
+    public async Task<IReadOnlyList<DashboardDocumentItemDto>> GetDocumentsForReviewAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUser.UserId;
+
+        var documents = await _db.Documents
+            .AsNoTracking()
+            .Include(d => d.Workflow)
+            .Include(d => d.WorkflowSteps)
+            .Where(d => d.Status != DocumentStatus.Draft && d.Recipients.Any(r => r.ReviewerUserId == userId))
+            .OrderByDescending(d => d.UpdatedAtUtc ?? d.CreatedAtUtc)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        return documents
+            .Select(d => MapItem(d, d.WorkflowSteps.FirstOrDefault(s => s.Status == WorkflowStepStatus.Active), false))
+            .ToList();
     }
 
     public async Task<DepartmentDashboardDto> GetDepartmentDashboardAsync(int departmentId, CancellationToken cancellationToken = default)
@@ -127,6 +145,7 @@ public class DashboardService
             activeStep?.IsSlaBreached ?? false,
             classification,
             activeStep is null ? null : IdParsing.ToApi(activeStep.Id),
-            isDelegated);
+            isDelegated,
+            activeStep?.SeenByApproverAtUtc is not null);
     }
 }

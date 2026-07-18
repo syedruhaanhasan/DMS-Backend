@@ -205,3 +205,45 @@ public class DocumentTypesController : ControllerBase
         return NoContent();
     }
 }
+
+[ApiController]
+[Route("api/user-types")]
+[Authorize]
+public class UserTypesController : ControllerBase
+{
+    private readonly UserTypeService _userTypeService;
+
+    public UserTypesController(UserTypeService userTypeService)
+    {
+        _userTypeService = userTypeService;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<UserTypeDto>>> GetUserTypes([FromQuery] bool? isActive, CancellationToken cancellationToken)
+    {
+        return Ok(await _userTypeService.ListAsync(isActive, cancellationToken));
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "perm:config.users.make")]
+    public async Task<ActionResult<UserTypeDto>> CreateUserType([FromBody] CreateUserTypeRequest request, CancellationToken cancellationToken)
+    {
+        var userType = await _userTypeService.CreateAsync(request, cancellationToken);
+        return CreatedAtAction(nameof(GetUserTypes), new { }, userType);
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Policy = "perm:config.users.check")]
+    public async Task<ActionResult<UserTypeDto>> UpdateUserType(int id, [FromBody] UpdateUserTypeRequest request, CancellationToken cancellationToken)
+    {
+        return Ok(await _userTypeService.UpdateAsync(id, request, cancellationToken));
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Policy = "perm:config.users.check")]
+    public async Task<IActionResult> DeleteUserType(int id, CancellationToken cancellationToken)
+    {
+        await _userTypeService.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
+}

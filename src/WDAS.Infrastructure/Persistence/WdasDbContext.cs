@@ -33,6 +33,7 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<DocumentSearchIndex> DocumentSearchIndexes => Set<DocumentSearchIndex>();
     public DbSet<PushDeviceRegistration> PushDeviceRegistrations => Set<PushDeviceRegistration>();
     public DbSet<DocumentTypeDefinition> DocumentTypeDefinitions => Set<DocumentTypeDefinition>();
+    public DbSet<UserType> UserTypes => Set<UserType>();
     public DbSet<ActiveDirectorySetting> ActiveDirectorySettings => Set<ActiveDirectorySetting>();
     public DbSet<RevokedToken> RevokedTokens => Set<RevokedToken>();
 
@@ -58,6 +59,7 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     IQueryable<DocumentSearchIndex> IApplicationDbContext.DocumentSearchIndexes => DocumentSearchIndexes;
     IQueryable<PushDeviceRegistration> IApplicationDbContext.PushDeviceRegistrations => PushDeviceRegistrations;
     IQueryable<DocumentTypeDefinition> IApplicationDbContext.DocumentTypeDefinitions => DocumentTypeDefinitions;
+    IQueryable<UserType> IApplicationDbContext.UserTypes => UserTypes;
     IQueryable<ActiveDirectorySetting> IApplicationDbContext.ActiveDirectorySettings => ActiveDirectorySettings;
     IQueryable<RevokedToken> IApplicationDbContext.RevokedTokens => RevokedTokens;
 

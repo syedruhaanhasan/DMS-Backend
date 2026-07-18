@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<UserPreferencesService>();
         services.AddScoped<NotificationService>();
         services.AddScoped<DocumentTypeService>();
+        services.AddScoped<UserTypeService>();
         services.AddScoped<ActiveDirectorySettingsService>();
         services.AddScoped<RoleService>();
         return services;

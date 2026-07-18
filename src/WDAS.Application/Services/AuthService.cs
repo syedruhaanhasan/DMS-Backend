@@ -164,6 +164,8 @@ public class AuthService
         var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId, cancellationToken)
             ?? throw new DomainException("Department not found.");
 
+        var userTypeId = await ResolveUserTypeIdAsync(request.UserTypeId, cancellationToken);
+
         if (await _db.Users.AnyAsync(u => u.UserPrincipalName == username, cancellationToken))
         {
             throw new ConflictException("username_taken", "A user with this username already exists.");
@@ -200,6 +202,7 @@ public class AuthService
             Email = email,
             Title = string.IsNullOrWhiteSpace(request.Title) ? "Staff" : request.Title.Trim(),
             DepartmentId = department.Id,
+            UserTypeId = userTypeId,
             PasswordHash = isLocalAccount ? _passwordHasher.Hash(request.Password!) : null,
             IsEnabledInAd = true,
             CreatedAtUtc = now,
@@ -244,6 +247,7 @@ public class AuthService
 
         user = await _db.Users
             .Include(u => u.Department)
+            .Include(u => u.UserType)
             .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstAsync(u => u.Id == user.Id, cancellationToken);
 
@@ -330,6 +334,7 @@ public class AuthService
         user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
         user.Title = string.IsNullOrWhiteSpace(request.Title) ? "Staff" : request.Title.Trim();
         user.DepartmentId = department.Id;
+        user.UserTypeId = await ResolveUserTypeIdAsync(request.UserTypeId, cancellationToken);
         user.UpdatedAtUtc = now;
 
         if (request.IsActive.HasValue)
@@ -380,6 +385,7 @@ public class AuthService
 
         user = await _db.Users
             .Include(u => u.Department)
+            .Include(u => u.UserType)
             .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstAsync(u => u.Id == userId, cancellationToken);
 
@@ -629,6 +635,7 @@ public class AuthService
         var query = _db.Users
             .AsNoTracking()
             .Include(u => u.Department)
+            .Include(u => u.UserType)
             .Include(u => u.RoleMappings).ThenInclude(m => m.Role)
             .AsQueryable();
 
@@ -863,6 +870,23 @@ public class AuthService
         }
     }
 
+    private async Task<int?> ResolveUserTypeIdAsync(string? userTypeId, CancellationToken cancellationToken)
+    {
+        var parsed = IdParsing.ParseOptional(userTypeId);
+        if (parsed is null)
+        {
+            return null;
+        }
+
+        var exists = await _db.UserTypes.AnyAsync(t => t.Id == parsed.Value && t.IsActive, cancellationToken);
+        if (!exists)
+        {
+            throw new DomainException("Selected user type was not found.");
+        }
+
+        return parsed;
+    }
+
     private static UserSummaryDto MapUser(User user, bool includePermissions = true)
     {
         var assigned = user.RoleMappings
@@ -898,7 +922,9 @@ public class AuthService
             user.Department?.Name ?? string.Empty,
             assigned.Select(r => new AssignedRoleDto(IdParsing.ToApi(r.Id), r.Name, r.Code)).ToList(),
             permissions,
-            !user.IsDisabledInApp);
+            !user.IsDisabledInApp,
+            user.UserTypeId.HasValue ? IdParsing.ToApi(user.UserTypeId.Value) : null,
+            user.UserType?.Name);
     }
 
     private static DepartmentDto MapDepartment(Department department) =>

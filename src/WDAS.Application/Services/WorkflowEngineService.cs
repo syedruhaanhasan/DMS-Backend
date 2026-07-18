@@ -343,7 +343,12 @@ public class WorkflowEngineService
             document.FinalizedAtUtc,
             document.CancellationReason,
             ParseAdHocIds(document.AdHocApproverUserIdsJson)?.Select(IdParsing.ToApi).ToList(),
-            document.Recipients.Select(r => new DocumentRecipientDto(IdParsing.ToApi(r.Id), r.RecipientName, r.RecipientEmail)).ToList(),
+            document.Recipients.Select(r => new DocumentRecipientDto(
+                IdParsing.ToApi(r.Id),
+                r.RecipientName,
+                r.RecipientEmail,
+                r.ReviewerUserId is int ru ? IdParsing.ToApi(ru) : null,
+                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
                 .Select(s => new WorkflowStepDto(

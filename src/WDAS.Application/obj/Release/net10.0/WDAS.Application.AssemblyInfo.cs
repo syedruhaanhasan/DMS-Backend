@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WDAS.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9d309495ed17716b525fa222fba46666101caf2e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+07bc5aead23740b6d00895bd27c63f870082bb7c")]
 [assembly: System.Reflection.AssemblyProductAttribute("WDAS.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WDAS.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

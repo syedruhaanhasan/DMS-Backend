@@ -87,7 +87,8 @@ public record DashboardDocumentItemDto(
     bool IsSlaBreached,
     string SlaClassification,
     string? ActiveStepId,
-    bool IsDelegated = false);
+    bool IsDelegated = false,
+    bool ActiveStepSeenByApprover = false);
 
 public record PersonalDashboardDto(
     IReadOnlyCollection<DashboardDocumentItemDto> PendingMyApproval,

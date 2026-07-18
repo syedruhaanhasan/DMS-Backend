@@ -10,5 +10,6 @@ public enum NotificationEventType
     Finalized = 6,
     SlaBreach = 7,
     ExternalOtp = 8,
-    DelegationNotice = 9
+    DelegationNotice = 9,
+    AddedAsReviewer = 10
 }

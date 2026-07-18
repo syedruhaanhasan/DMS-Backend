@@ -15,6 +15,8 @@ public class WorkflowStep : Entity
     public WorkflowStepStatus Status { get; set; } = WorkflowStepStatus.Pending;
     public DateTime? ActivatedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
+    /// <summary>Set the first time the assigned approver opens the document for this step.</summary>
+    public DateTime? SeenByApproverAtUtc { get; set; }
     public DateTime? SlaDueAtUtc { get; set; }
     public bool IsSlaBreached { get; set; }
     public bool RequiresReconfirmation { get; set; }

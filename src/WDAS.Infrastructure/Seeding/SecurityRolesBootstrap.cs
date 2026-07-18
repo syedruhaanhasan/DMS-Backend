@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Domain;
 using WDAS.Domain.Entities;
@@ -129,6 +129,7 @@ public static class SecurityRolesBootstrap
         var defs = new (string Name, string Code, string Description)[]
         {
             ("Super Admin", RoleNames.SuperAdmin, "Full system administrator with configuration access."),
+            ("Super Admin (Configuration)", RoleNames.ConfigAdmin, "Configuration-only administrator. Predefined role — cannot be deleted."),
             ("Dept Admin", RoleNames.DepartmentAdmin, "Department-level oversight and reporting."),
             ("Maker", RoleNames.MakerOwner, "Creates and owns documents through the approval cycle."),
             ("Approver", RoleNames.Approver, "Reviews and acts on assigned approval steps."),

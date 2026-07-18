@@ -215,6 +215,12 @@ public class DashboardController : ControllerBase
         return Ok(await _dashboardService.GetPersonalDashboardAsync(cancellationToken));
     }
 
+    [HttpGet("for-review")]
+    public async Task<ActionResult<IReadOnlyList<DashboardDocumentItemDto>>> GetForReview(CancellationToken cancellationToken)
+    {
+        return Ok(await _dashboardService.GetDocumentsForReviewAsync(cancellationToken));
+    }
+
     [HttpGet("department/{id:int}")]
     [Authorize(Policy = "SuperAdmin")]
     public async Task<ActionResult<DepartmentDashboardDto>> GetDepartment(int id, CancellationToken cancellationToken)
