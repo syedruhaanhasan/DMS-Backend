@@ -4,10 +4,10 @@ namespace WDAS.Application.Abstractions;
 
 public record NotificationRequest(
     NotificationEventType EventType,
-    Guid? RecipientUserId,
+    int? RecipientUserId,
     string? RecipientEmail,
-    Guid? DocumentId,
-    Guid? WorkflowStepId,
+    int? DocumentId,
+    int? WorkflowStepId,
     string Subject,
     string Body,
     string? HtmlBody = null,

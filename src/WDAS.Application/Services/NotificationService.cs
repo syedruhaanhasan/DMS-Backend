@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Enums;
@@ -22,31 +23,33 @@ public class NotificationService
         CancellationToken cancellationToken = default)
     {
         var userId = _currentUser.UserId;
-        if (userId == Guid.Empty)
+        if (userId == 0)
         {
             throw new DomainException("Authentication required.");
         }
 
-        return await _db.Notifications
+        var rows = await _db.Notifications
             .Where(n => n.RecipientUserId == userId && n.Channel == NotificationChannel.InApp)
             .OrderByDescending(n => n.CreatedAtUtc)
             .Take(take)
-            .Select(n => new NotificationDto(
-                n.Id,
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(n => new NotificationDto(
+                IdParsing.ToApi(n.Id),
                 n.EventType.ToString(),
                 n.Channel.ToString(),
                 n.Subject,
                 n.Body,
-                n.DocumentId,
+                n.DocumentId is int docId ? IdParsing.ToApi(docId) : null,
                 n.CreatedAtUtc,
                 n.ReadAtUtc))
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
-    public async Task MarkReadAsync(Guid notificationId, CancellationToken cancellationToken = default)
+    public async Task MarkReadAsync(int notificationId, CancellationToken cancellationToken = default)
     {
         var userId = _currentUser.UserId;
-        if (userId == Guid.Empty)
+        if (userId == 0)
         {
             throw new DomainException("Authentication required.");
         }
@@ -63,7 +66,7 @@ public class NotificationService
     public async Task MarkAllReadAsync(CancellationToken cancellationToken = default)
     {
         var userId = _currentUser.UserId;
-        if (userId == Guid.Empty)
+        if (userId == 0)
         {
             throw new DomainException("Authentication required.");
         }

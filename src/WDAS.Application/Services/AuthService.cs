@@ -19,6 +19,7 @@ public class AuthService
     private readonly IAuditWriter _auditWriter;
     private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ITokenRevocationService _tokenRevocation;
 
     public AuthService(
         IApplicationDbContext db,
@@ -27,7 +28,8 @@ public class AuthService
         IClock clock,
         IAuditWriter auditWriter,
         ICurrentUserService currentUser,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        ITokenRevocationService tokenRevocation)
     {
         _db = db;
         _identityProvider = identityProvider;
@@ -36,6 +38,7 @@ public class AuthService
         _auditWriter = auditWriter;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
+        _tokenRevocation = tokenRevocation;
     }
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -101,7 +104,25 @@ public class AuthService
             ActorEmail: user.Email),
             cancellationToken);
 
-        return new LoginResponse(token, _clock.UtcNow.AddHours(8), MapUser(user));
+        return new LoginResponse(token.Token, token.ExpiresAtUtc, MapUser(user));
+    }
+
+    /// <summary>
+    /// Revokes the caller's current access token so it stops working immediately,
+    /// even though it has not reached its natural expiry.
+    /// </summary>
+    public async Task LogoutAsync(string? jti, DateTime expiresAtUtc, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrEmpty(jti))
+        {
+            await _tokenRevocation.RevokeAsync(jti, expiresAtUtc, cancellationToken);
+        }
+
+        await _auditWriter.WriteAsync(new AuditWriteRequest(
+            AuditEventType.Logout,
+            "User logout",
+            ActorUserId: _currentUser.UserId),
+            cancellationToken);
     }
 
     public async Task<UserSummaryDto> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
@@ -139,7 +160,8 @@ public class AuthService
             throw new DomainException("Invalid email format.");
         }
 
-        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == request.DepartmentId, cancellationToken)
+        var departmentId = IdParsing.ParseRequired(request.DepartmentId, "Department id");
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId, cancellationToken)
             ?? throw new DomainException("Department not found.");
 
         if (await _db.Users.AnyAsync(u => u.UserPrincipalName == username, cancellationToken))
@@ -228,7 +250,143 @@ public class AuthService
         return MapUser(user);
     }
 
-    public async Task<UserSummaryDto> UpdateUserRoleAsync(Guid userId, UpdateUserRoleRequest request, CancellationToken cancellationToken = default)
+    public async Task<UserSummaryDto> UpdateUserAsync(int userId, UpdateUserRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureSuperAdmin();
+
+        var user = await _db.Users
+            .Include(u => u.Department)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new DomainException("User not found.");
+
+        var username = request.UserPrincipalName.Trim();
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            throw new DomainException("Username is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            throw new DomainException("Display name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            throw new DomainException("Email is required.");
+        }
+
+        var email = request.Email.Trim();
+        if (!EmailFormatValidator.IsValid(email))
+        {
+            throw new DomainException("Invalid email format.");
+        }
+
+        var departmentId = IdParsing.ParseRequired(request.DepartmentId, "Department id");
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId, cancellationToken)
+            ?? throw new DomainException("Department not found.");
+
+        if (await _db.Users.AnyAsync(u => u.Id != userId && u.UserPrincipalName == username, cancellationToken))
+        {
+            throw new ConflictException("username_taken", "A user with this username already exists.");
+        }
+
+        if (await _db.Users.AnyAsync(u => u.Id != userId && u.Email == email, cancellationToken))
+        {
+            throw new ConflictException("email_taken", "A user with this email already exists.");
+        }
+
+        var roleIds = await ResolveRoleIdsAsync(request.RoleIds, request.Roles, request.Role, cancellationToken);
+        if (roleIds.Count == 0)
+        {
+            throw new DomainException("At least one role is required.");
+        }
+
+        var securityRoles = await _db.SecurityRoles
+            .Where(r => roleIds.Contains(r.Id) && r.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (securityRoles.Count != roleIds.Count)
+        {
+            throw new DomainException("One or more selected roles were not found.");
+        }
+
+        if (userId == _currentUser.UserId &&
+            user.RoleMappings.Any(m => m.Role.Code == RoleNames.SuperAdmin) &&
+            securityRoles.All(r => r.Code != RoleNames.SuperAdmin))
+        {
+            throw new DomainException("You cannot remove the Super Admin role from your own account.");
+        }
+
+        if (request.IsActive == false && userId == _currentUser.UserId)
+        {
+            throw new DomainException("You cannot deactivate your own account.");
+        }
+
+        var now = _clock.UtcNow;
+        user.UserPrincipalName = username;
+        user.DisplayName = request.DisplayName.Trim();
+        user.Email = email;
+        user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
+        user.Title = string.IsNullOrWhiteSpace(request.Title) ? "Staff" : request.Title.Trim();
+        user.DepartmentId = department.Id;
+        user.UpdatedAtUtc = now;
+
+        if (request.IsActive.HasValue)
+        {
+            user.IsDisabledInApp = !request.IsActive.Value;
+            if (request.IsActive.Value)
+            {
+                user.IsEnabledInAd = true;
+                user.AdDisabledAtUtc = null;
+            }
+            else
+            {
+                user.AdDisabledAtUtc = now;
+            }
+        }
+
+        _db.RemoveRange(user.RoleMappings);
+        foreach (var role in securityRoles)
+        {
+            _db.Add(new RoleMapping
+            {
+                UserId = user.Id,
+                RoleId = role.Id,
+                DepartmentId = role.Code == RoleNames.SuperAdmin ? null : department.Id,
+                CreatedAtUtc = now
+            });
+        }
+
+        await SaveAsync(cancellationToken);
+
+        await _auditWriter.WriteAsync(new AuditWriteRequest(
+            AuditEventType.Update,
+            "User updated",
+            ActorUserId: _currentUser.UserId,
+            DetailsJson: JsonSerializer.Serialize(new
+            {
+                userId,
+                user.UserPrincipalName,
+                user.DisplayName,
+                user.Email,
+                user.PhoneNumber,
+                user.Title,
+                DepartmentId = department.Id,
+                RoleIds = roleIds,
+                request.IsActive
+            })),
+            cancellationToken);
+
+        user = await _db.Users
+            .Include(u => u.Department)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
+            .FirstAsync(u => u.Id == userId, cancellationToken);
+
+        return MapUser(user);
+    }
+
+    public async Task<UserSummaryDto> UpdateUserRoleAsync(int userId, UpdateUserRoleRequest request, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -255,7 +413,7 @@ public class AuthService
 
         // Prevent locking yourself out of administration.
         if (userId == _currentUser.UserId &&
-            user.RoleMappings.Any(m => m.RoleId == Domain.SecurityRoleIds.SuperAdmin) &&
+            user.RoleMappings.Any(m => m.Role.Code == RoleNames.SuperAdmin) &&
             securityRoles.All(r => r.Code != RoleNames.SuperAdmin))
         {
             throw new DomainException("You cannot remove the Super Admin role from your own account.");
@@ -292,7 +450,7 @@ public class AuthService
         return MapUser(user);
     }
 
-    public async Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -319,7 +477,7 @@ public class AuthService
             cancellationToken);
     }
 
-    public async Task<UserSummaryDto> SetUserActiveStatusAsync(Guid userId, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<UserSummaryDto> SetUserActiveStatusAsync(int userId, bool isActive, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -341,6 +499,7 @@ public class AuthService
         }
         else
         {
+            user.IsEnabledInAd = true;
             user.AdDisabledAtUtc = null;
         }
 
@@ -502,10 +661,8 @@ public class AuthService
             query = query.Where(d => !d.IsActive);
         }
 
-        return await query
-            .OrderBy(d => d.Name)
-            .Select(d => new DepartmentDto(d.Id, d.Name, d.Code, d.ParentDepartmentId, d.IsActive))
-            .ToListAsync(cancellationToken);
+        var departments = await query.OrderBy(d => d.Name).ToListAsync(cancellationToken);
+        return departments.Select(MapDepartment).ToList();
     }
 
     public async Task<DepartmentDto> CreateDepartmentAsync(CreateDepartmentRequest request, CancellationToken cancellationToken = default)
@@ -530,7 +687,7 @@ public class AuthService
             throw new ConflictException("code_taken", "A department with this code already exists.");
         }
 
-        if (request.ParentDepartmentId is Guid parentId)
+        if (IdParsing.ParseOptional(request.ParentDepartmentId) is int parentId)
         {
             var parentExists = await _db.Departments.AnyAsync(d => d.Id == parentId, cancellationToken);
             if (!parentExists)
@@ -545,7 +702,7 @@ public class AuthService
             AdObjectId = $"local-dept-{Guid.NewGuid():N}",
             Name = name,
             Code = code,
-            ParentDepartmentId = request.ParentDepartmentId,
+            ParentDepartmentId = IdParsing.ParseOptional(request.ParentDepartmentId),
             IsActive = true,
             CreatedAtUtc = now,
             LastSyncedAtUtc = now
@@ -561,10 +718,10 @@ public class AuthService
             DetailsJson: JsonSerializer.Serialize(new { department.Id, department.Name, department.Code })),
             cancellationToken);
 
-        return new DepartmentDto(department.Id, department.Name, department.Code, department.ParentDepartmentId, department.IsActive);
+        return MapDepartment(department);
     }
 
-    public async Task<DepartmentDto> UpdateDepartmentAsync(Guid departmentId, UpdateDepartmentRequest request, CancellationToken cancellationToken = default)
+    public async Task<DepartmentDto> UpdateDepartmentAsync(int departmentId, UpdateDepartmentRequest request, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -607,10 +764,10 @@ public class AuthService
             DetailsJson: JsonSerializer.Serialize(new { department.Id, department.Name, department.Code, department.IsActive })),
             cancellationToken);
 
-        return new DepartmentDto(department.Id, department.Name, department.Code, department.ParentDepartmentId, department.IsActive);
+        return MapDepartment(department);
     }
 
-    public async Task DeleteDepartmentAsync(Guid departmentId, CancellationToken cancellationToken = default)
+    public async Task DeleteDepartmentAsync(int departmentId, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -639,15 +796,18 @@ public class AuthService
             cancellationToken);
     }
 
-    private async Task<List<Guid>> ResolveRoleIdsAsync(
-        List<Guid>? roleIds,
+    private async Task<List<int>> ResolveRoleIdsAsync(
+        List<string>? roleIds,
         List<ApplicationRole>? legacyRoles,
         ApplicationRole? legacyRole,
         CancellationToken cancellationToken)
     {
         if (roleIds is { Count: > 0 })
         {
-            return roleIds.Distinct().ToList();
+            return roleIds
+                .Select(id => IdParsing.ParseRequired(id, "Role id"))
+                .Distinct()
+                .ToList();
         }
 
         IEnumerable<ApplicationRole> source = legacyRoles is { Count: > 0 }
@@ -727,16 +887,25 @@ public class AuthService
         }
 
         return new UserSummaryDto(
-            user.Id,
+            IdParsing.ToApi(user.Id),
             user.AdObjectId,
             user.UserPrincipalName,
             user.DisplayName,
             user.Email,
+            user.PhoneNumber,
             user.Title,
-            user.DepartmentId,
+            IdParsing.ToApi(user.DepartmentId),
             user.Department?.Name ?? string.Empty,
-            assigned.Select(r => new AssignedRoleDto(r.Id, r.Name, r.Code)).ToList(),
+            assigned.Select(r => new AssignedRoleDto(IdParsing.ToApi(r.Id), r.Name, r.Code)).ToList(),
             permissions,
             !user.IsDisabledInApp);
     }
+
+    private static DepartmentDto MapDepartment(Department department) =>
+        new(
+            IdParsing.ToApi(department.Id),
+            department.Name,
+            department.Code,
+            department.ParentDepartmentId is int parentId ? IdParsing.ToApi(parentId) : null,
+            department.IsActive);
 }

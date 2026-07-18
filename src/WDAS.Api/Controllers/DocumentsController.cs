@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using WDAS.Application;
 using WDAS.Application.Models;
 using WDAS.Application.Services;
 
@@ -34,45 +35,45 @@ public class DocumentsController : ControllerBase
         var document = await _documentService.CreateDocumentAsync(request, cancellationToken);
         if (request.Submit)
         {
-            SchedulePostSubmitSideEffects(document.Id);
+            SchedulePostSubmitSideEffects(IdParsing.ParseRequired(document.Id, "Document id"));
         }
 
         return CreatedAtAction(nameof(GetDocument), new { id = document.Id }, document);
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<DocumentDto>> GetDocument(Guid id, CancellationToken cancellationToken)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<DocumentDto>> GetDocument(int id, CancellationToken cancellationToken)
     {
         return Ok(await _documentService.GetDocumentAsync(id, cancellationToken));
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<DocumentDto>> UpdateDocument(Guid id, [FromBody] UpdateDocumentRequest request, CancellationToken cancellationToken)
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<DocumentDto>> UpdateDocument(int id, [FromBody] UpdateDocumentRequest request, CancellationToken cancellationToken)
     {
         var document = await _documentService.UpdateDocumentAsync(id, request, cancellationToken);
         if (request.Submit)
         {
-            SchedulePostSubmitSideEffects(document.Id);
+            SchedulePostSubmitSideEffects(IdParsing.ParseRequired(document.Id, "Document id"));
         }
 
         return Ok(document);
     }
 
-    [HttpPost("{id:guid}/submit")]
-    public async Task<ActionResult<DocumentDto>> SubmitDocument(Guid id, [FromBody] SubmitDocumentRequest? request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/submit")]
+    public async Task<ActionResult<DocumentDto>> SubmitDocument(int id, [FromBody] SubmitDocumentRequest? request, CancellationToken cancellationToken)
     {
         var document = await _documentService.SubmitDocumentAsync(id, request?.IdempotencyKey, cancellationToken);
-        SchedulePostSubmitSideEffects(document.Id);
+        SchedulePostSubmitSideEffects(IdParsing.ParseRequired(document.Id, "Document id"));
         return Ok(document);
     }
 
-    [HttpPost("{id:guid}/revise")]
-    public async Task<ActionResult<DocumentDto>> ReviseRejectedDocument(Guid id, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/revise")]
+    public async Task<ActionResult<DocumentDto>> ReviseRejectedDocument(int id, CancellationToken cancellationToken)
     {
         return Ok(await _documentService.ReviseRejectedDocumentAsync(id, cancellationToken));
     }
 
-    private void SchedulePostSubmitSideEffects(Guid documentId)
+    private void SchedulePostSubmitSideEffects(int documentId)
     {
         // Run indexing/notifications after the response so submit feels instant even if SMTP is slow/down.
         var scopeFactory = _scopeFactory;
@@ -92,21 +93,21 @@ public class DocumentsController : ControllerBase
         });
     }
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeleteDocument(Guid id, CancellationToken cancellationToken)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteDocument(int id, CancellationToken cancellationToken)
     {
         await _documentService.DeleteDocumentAsync(id, cancellationToken);
         return NoContent();
     }
 
-    [HttpPost("{id:guid}/cancel")]
-    public async Task<ActionResult<DocumentDto>> Cancel(Guid id, [FromBody] CancelDocumentRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/cancel")]
+    public async Task<ActionResult<DocumentDto>> Cancel(int id, [FromBody] CancelDocumentRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _cancellationService.CancelAsync(id, request, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/finalize")]
-    public async Task<ActionResult<RepositoryDocumentDto>> Finalize(Guid id, [FromBody] FinalizeDocumentRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/finalize")]
+    public async Task<ActionResult<RepositoryDocumentDto>> Finalize(int id, [FromBody] FinalizeDocumentRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _finalizationService.FinalizeAsync(id, request, cancellationToken));
     }
@@ -128,33 +129,33 @@ public class WorkflowStepsController : ControllerBase
         _delegationService = delegationService;
     }
 
-    [HttpPost("{id:guid}/approve")]
-    public async Task<ActionResult<DocumentDto>> Approve(Guid id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/approve")]
+    public async Task<ActionResult<DocumentDto>> Approve(int id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _workflowEngineService.ApproveAsync(id, request, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/reject")]
-    public async Task<ActionResult<DocumentDto>> Reject(Guid id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/reject")]
+    public async Task<ActionResult<DocumentDto>> Reject(int id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _workflowEngineService.RejectAsync(id, request, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/return")]
-    public async Task<ActionResult<DocumentDto>> Return(Guid id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/return")]
+    public async Task<ActionResult<DocumentDto>> Return(int id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _workflowEngineService.ReturnAsync(id, request, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/comment")]
-    public async Task<ActionResult<DocumentDto>> Comment(Guid id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/comment")]
+    public async Task<ActionResult<DocumentDto>> Comment(int id, [FromBody] WorkflowActionRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _workflowEngineService.CommentAsync(id, request, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/reassign")]
+    [HttpPost("{id:int}/reassign")]
     [Authorize(Policy = "WorkflowAdmin")]
-    public async Task<ActionResult<DocumentDto>> Reassign(Guid id, [FromBody] ReassignStepRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<DocumentDto>> Reassign(int id, [FromBody] ReassignStepRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _delegationService.ReassignStepAsync(id, request, cancellationToken));
     }

@@ -19,7 +19,7 @@ public class CurrentUserService : ICurrentUserService
         _db = db;
     }
 
-    public Guid UserId => Guid.Parse(GetClaim(ClaimTypes.NameIdentifier) ?? GetClaim("sub") ?? throw new InvalidOperationException("User is not authenticated."));
+    public int UserId => IdParsing.ParseRequired(GetClaim(ClaimTypes.NameIdentifier) ?? GetClaim("sub"), "User id");
 
     public string AdObjectId => GetClaim("ad_oid") ?? string.Empty;
 
@@ -41,14 +41,7 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
-    public Guid? DepartmentId
-    {
-        get
-        {
-            var value = GetClaim("department_id");
-            return Guid.TryParse(value, out var id) ? id : null;
-        }
-    }
+    public int? DepartmentId => IdParsing.ParseOptional(GetClaim("department_id"));
 
     public bool IsInRole(string role)
     {

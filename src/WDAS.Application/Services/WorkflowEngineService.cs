@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
@@ -30,16 +31,16 @@ public class WorkflowEngineService
         _auditWriter = auditWriter;
     }
 
-    public Task<DocumentDto> ApproveAsync(Guid stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
+    public Task<DocumentDto> ApproveAsync(int stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
         => ExecuteActionAsync(stepId, WorkflowActionType.Approve, request, cancellationToken);
 
-    public Task<DocumentDto> RejectAsync(Guid stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
+    public Task<DocumentDto> RejectAsync(int stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
         => ExecuteActionAsync(stepId, WorkflowActionType.Reject, request, cancellationToken);
 
-    public Task<DocumentDto> ReturnAsync(Guid stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
+    public Task<DocumentDto> ReturnAsync(int stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
         => ExecuteActionAsync(stepId, WorkflowActionType.ReturnForCorrection, request, cancellationToken);
 
-    public async Task<DocumentDto> CommentAsync(Guid stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> CommentAsync(int stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Comment))
         {
@@ -50,7 +51,7 @@ public class WorkflowEngineService
     }
 
     private async Task<DocumentDto> ExecuteActionAsync(
-        Guid stepId,
+        int stepId,
         WorkflowActionType actionType,
         WorkflowActionRequest request,
         CancellationToken cancellationToken,
@@ -61,7 +62,7 @@ public class WorkflowEngineService
             .Select(s => s.DocumentId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (documentId == Guid.Empty)
+        if (documentId == 0)
         {
             throw new DomainException("Workflow step not found.");
         }
@@ -84,8 +85,8 @@ public class WorkflowEngineService
                     new ConflictResponseDto(
                         "STALE_OFFLINE_ACTION",
                         "Re-validate sequential visibility and retry.",
-                        document.Id,
-                        step.Id,
+                        IdParsing.ToApi(document.Id),
+                        IdParsing.ToApi(step.Id),
                         step.Status.ToString(),
                         _clock.UtcNow));
             }
@@ -281,7 +282,7 @@ public class WorkflowEngineService
         }
     }
 
-    private async Task<DocumentDto> LoadDocumentDtoAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task<DocumentDto> LoadDocumentDtoAsync(int documentId, CancellationToken cancellationToken)
     {
         var document = await _db.Documents
             .AsNoTracking()
@@ -297,7 +298,7 @@ public class WorkflowEngineService
         return MapDocument(document);
     }
 
-    private async Task<IReadOnlyCollection<Guid>> GetGroupMemberIdsAsync(WorkflowStep step, CancellationToken cancellationToken)
+    private async Task<IReadOnlyCollection<int>> GetGroupMemberIdsAsync(WorkflowStep step, CancellationToken cancellationToken)
     {
         if (!step.ApproverGroupId.HasValue)
         {
@@ -321,14 +322,14 @@ public class WorkflowEngineService
 
     private static DocumentDto MapDocument(Document document) =>
         new(
-            document.Id,
+            IdParsing.ToApi(document.Id),
             document.RecordNumber,
             document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
-            document.OwnerUserId,
+            IdParsing.ToApi(document.OwnerUserId),
             document.Owner.DisplayName,
-            document.DepartmentId,
-            document.WorkflowId,
-            document.WorkflowVersionId,
+            IdParsing.ToApi(document.DepartmentId),
+            IdParsing.ToApi(document.WorkflowId),
+            document.WorkflowVersionId is int wv ? IdParsing.ToApi(wv) : null,
             document.ToRecipients,
             document.FromDisplay,
             document.Subject,
@@ -341,14 +342,14 @@ public class WorkflowEngineService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
-            ParseAdHocIds(document.AdHocApproverUserIdsJson),
-            document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
+            ParseAdHocIds(document.AdHocApproverUserIdsJson)?.Select(IdParsing.ToApi).ToList(),
+            document.Recipients.Select(r => new DocumentRecipientDto(IdParsing.ToApi(r.Id), r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
                 .Select(s => new WorkflowStepDto(
-                    s.Id,
+                    IdParsing.ToApi(s.Id),
                     s.StepOrder,
-                    s.ApproverUserId,
+                    s.ApproverUserId is int au ? IdParsing.ToApi(au) : null,
                     s.ApproverUser?.DisplayName,
                     s.GroupName,
                     s.Status,
@@ -357,25 +358,25 @@ public class WorkflowEngineService
                     s.SlaDueAtUtc,
                     s.IsSlaBreached,
                     s.Actions.OrderBy(a => a.ActionAtUtc).Select(a => new WorkflowStepActionDto(
-                        a.Id,
-                        a.ActorUserId,
+                        IdParsing.ToApi(a.Id),
+                        IdParsing.ToApi(a.ActorUserId),
                         a.Actor.DisplayName,
                         a.ActionType,
                         a.Comment,
                         a.ActionAtUtc)).ToList()))
                 .ToList());
 
-    private static List<Guid>? ParseAdHocIds(string? json)
+    private static List<int>? ParseAdHocIds(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
             return null;
         }
 
-        return System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(json);
+        return System.Text.Json.JsonSerializer.Deserialize<List<int>>(json);
     }
 
-    private async Task<Guid?> ResolveOnBehalfOfAsync(WorkflowStep step, CancellationToken cancellationToken)
+    private async Task<int?> ResolveOnBehalfOfAsync(WorkflowStep step, CancellationToken cancellationToken)
     {
         if (step.ApproverUserId == _currentUser.UserId)
         {
@@ -443,7 +444,7 @@ public class WorkflowEngineService
             return;
         }
 
-        var recipientIds = new List<Guid>();
+        var recipientIds = new List<int>();
         if (nextStep.ApproverUserId.HasValue)
         {
             recipientIds.Add(nextStep.ApproverUserId.Value);

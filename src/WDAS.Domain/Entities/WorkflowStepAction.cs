@@ -5,9 +5,9 @@ namespace WDAS.Domain.Entities;
 
 public class WorkflowStepAction : Entity
 {
-    public Guid WorkflowStepId { get; set; }
-    public Guid ActorUserId { get; set; }
-    public Guid? OnBehalfOfUserId { get; set; }
+    public int WorkflowStepId { get; set; }
+    public int ActorUserId { get; set; }
+    public int? OnBehalfOfUserId { get; set; }
     public WorkflowActionType ActionType { get; set; }
     public string? Comment { get; set; }
     public DateTime ActionAtUtc { get; set; }

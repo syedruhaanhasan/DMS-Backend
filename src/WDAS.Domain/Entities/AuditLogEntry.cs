@@ -4,15 +4,18 @@ using WDAS.Domain.Enums;
 
 public class AuditLogEntry
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public int Id { get; set; }
     public long SequenceNumber { get; set; }
     public string PreviousHash { get; set; } = string.Empty;
     public string EntryHash { get; set; } = string.Empty;
+    public int HashVersion { get; set; } = 1;
     public AuditEventType EventType { get; set; }
-    public Guid? ActorUserId { get; set; }
+    public int? ActorUserId { get; set; }
+    public Guid? LegacyActorUserId { get; set; }
     public string? ActorDisplayName { get; set; }
     public string? ActorEmail { get; set; }
-    public Guid? DocumentId { get; set; }
+    public int? DocumentId { get; set; }
+    public Guid? LegacyDocumentId { get; set; }
     public string? EntityType { get; set; }
     public string? EntityId { get; set; }
     public string Action { get; set; } = string.Empty;

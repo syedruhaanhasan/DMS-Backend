@@ -5,7 +5,7 @@ namespace WDAS.Domain.Entities;
 
 public class WorkflowVersion : Entity
 {
-    public Guid WorkflowId { get; set; }
+    public int WorkflowId { get; set; }
     public int VersionNumber { get; set; }
     public WorkflowVersionState State { get; set; } = WorkflowVersionState.Draft;
     public ApprovalMode ApprovalMode { get; set; }

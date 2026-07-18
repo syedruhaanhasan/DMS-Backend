@@ -3,14 +3,14 @@ using WDAS.Domain.Enums;
 namespace WDAS.Application.Models;
 
 public record DocumentDto(
-    Guid Id,
+    string Id,
     long RecordNumber,
     int RevisionNumber,
-    Guid OwnerUserId,
+    string OwnerUserId,
     string OwnerDisplayName,
-    Guid DepartmentId,
-    Guid WorkflowId,
-    Guid? WorkflowVersionId,
+    string DepartmentId,
+    string WorkflowId,
+    string? WorkflowVersionId,
     string ToRecipients,
     string FromDisplay,
     string Subject,
@@ -23,21 +23,21 @@ public record DocumentDto(
     string? ArchiveDocumentId,
     DateTime? FinalizedAtUtc,
     string? CancellationReason,
-    IReadOnlyCollection<Guid>? AdHocApproverUserIds,
+    IReadOnlyCollection<string>? AdHocApproverUserIds,
     IReadOnlyCollection<DocumentRecipientDto> Recipients,
     IReadOnlyCollection<WorkflowStepDto> WorkflowSteps);
 
-public record DocumentRecipientDto(Guid Id, string RecipientName, string? RecipientEmail);
+public record DocumentRecipientDto(string Id, string RecipientName, string? RecipientEmail);
 
 public record CreateDocumentRequest(
-    Guid WorkflowId,
+    string WorkflowId,
     string ToRecipients,
     string Subject,
     string BodyHtml,
     decimal? Amount,
     DocumentPriority Priority,
     IReadOnlyCollection<DocumentRecipientInput> Recipients,
-    IReadOnlyCollection<Guid>? AdHocApproverUserIds,
+    IReadOnlyCollection<string>? AdHocApproverUserIds,
     bool Submit,
     string? IdempotencyKey);
 
@@ -48,7 +48,7 @@ public record UpdateDocumentRequest(
     decimal? Amount,
     DocumentPriority Priority,
     IReadOnlyCollection<DocumentRecipientInput>? Recipients,
-    IReadOnlyCollection<Guid>? AdHocApproverUserIds,
+    IReadOnlyCollection<string>? AdHocApproverUserIds,
     bool Submit,
     string? IdempotencyKey);
 
@@ -57,9 +57,9 @@ public record SubmitDocumentRequest(string? IdempotencyKey);
 public record DocumentRecipientInput(string RecipientName, string? RecipientEmail);
 
 public record WorkflowStepDto(
-    Guid Id,
+    string Id,
     int StepOrder,
-    Guid? ApproverUserId,
+    string? ApproverUserId,
     string? ApproverDisplayName,
     string? GroupName,
     WorkflowStepStatus Status,
@@ -70,8 +70,8 @@ public record WorkflowStepDto(
     IReadOnlyCollection<WorkflowStepActionDto> Actions);
 
 public record WorkflowStepActionDto(
-    Guid Id,
-    Guid ActorUserId,
+    string Id,
+    string ActorUserId,
     string ActorDisplayName,
     WorkflowActionType ActionType,
     string? Comment,

@@ -1,6 +1,7 @@
 using System.DirectoryServices.Protocols;
 using LdapSearchRequest = System.DirectoryServices.Protocols.SearchRequest;
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WDAS.Application.Abstractions;
@@ -12,54 +13,91 @@ namespace WDAS.Infrastructure.Identity;
 public class LdapIdentityProvider : IIdentityProvider
 {
     private readonly LdapOptions _options;
+    private readonly IApplicationDbContext _db;
     private readonly ILogger<LdapIdentityProvider> _logger;
 
-    public LdapIdentityProvider(IOptions<LdapOptions> options, ILogger<LdapIdentityProvider> logger)
+    public LdapIdentityProvider(
+        IOptions<LdapOptions> options,
+        IApplicationDbContext db,
+        ILogger<LdapIdentityProvider> logger)
     {
         _options = options.Value;
+        _db = db;
         _logger = logger;
     }
 
-    public Task<AuthenticatedUser?> AuthenticateAsync(string username, string password, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Effective connection settings: the database row (managed from the UI) takes
+    /// precedence for enabled/host/port/ssl; advanced fields come from appsettings.
+    /// </summary>
+    private sealed record EffectiveLdapSettings(
+        bool Enabled,
+        string Host,
+        int Port,
+        bool UseSsl,
+        string BaseDn,
+        string BindDn,
+        string BindPassword,
+        string UserFilter,
+        string UserSearchBase);
+
+    private async Task<EffectiveLdapSettings> LoadSettingsAsync(CancellationToken cancellationToken)
     {
-        if (!_options.Enabled)
+        var row = await _db.ActiveDirectorySettings.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        return new EffectiveLdapSettings(
+            Enabled: row?.Enabled ?? _options.Enabled,
+            Host: !string.IsNullOrWhiteSpace(row?.DomainName) ? row!.DomainName : _options.Host,
+            Port: row is { Port: > 0 } ? row.Port : _options.Port,
+            UseSsl: row?.UseSsl ?? _options.UseSsl,
+            BaseDn: _options.BaseDn,
+            BindDn: _options.BindDn,
+            BindPassword: _options.BindPassword,
+            UserFilter: string.IsNullOrWhiteSpace(_options.UserFilter) ? "(&(objectClass=user)(sAMAccountName={0}))" : _options.UserFilter,
+            UserSearchBase: _options.UserSearchBase);
+    }
+
+    public async Task<AuthenticatedUser?> AuthenticateAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        var settings = await LoadSettingsAsync(cancellationToken);
+        if (!settings.Enabled)
         {
-            throw new InvalidOperationException("LDAP is not enabled. Set Ldap:Enabled=true in configuration.");
+            throw new InvalidOperationException("Active Directory is not enabled. Enable it under Configuration → Active Directory.");
         }
 
-        var entry = SearchUserEntry(username);
+        var entry = SearchUserEntry(settings, username);
         if (entry is null)
         {
-            return Task.FromResult<AuthenticatedUser?>(null);
+            return null;
         }
 
-        var userDn = GetAttr(entry, "distinguishedName") ?? $"CN={username},{_options.UserSearchBase}";
-        using var connection = CreateConnection();
+        var userDn = GetAttr(entry, "distinguishedName") ?? $"CN={username},{settings.UserSearchBase}";
+        using var connection = CreateConnection(settings);
         connection.Credential = new NetworkCredential(userDn, password);
         connection.AuthType = AuthType.Basic;
         connection.Bind();
 
         var adObjectId = GetObjectGuid(entry) ?? username;
-        return Task.FromResult<AuthenticatedUser?>(new AuthenticatedUser(
-            Guid.Empty,
+        return new AuthenticatedUser(
+            0,
             adObjectId,
             GetAttr(entry, "displayName") ?? username,
             GetAttr(entry, "mail") ?? $"{username}@local",
-            Guid.Empty,
-            []));
+            0,
+            []);
     }
 
-    public Task<IReadOnlyList<DirectoryUserSnapshot>> GetDirectoryUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DirectoryUserSnapshot>> GetDirectoryUsersAsync(CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled)
+        var settings = await LoadSettingsAsync(cancellationToken);
+        if (!settings.Enabled)
         {
-            throw new InvalidOperationException("LDAP is not enabled.");
+            throw new InvalidOperationException("Active Directory is not enabled.");
         }
 
-        using var connection = CreateConnection();
-        BindServiceAccount(connection);
+        using var connection = CreateConnection(settings);
+        BindServiceAccount(connection, settings);
 
-        var searchBase = string.IsNullOrWhiteSpace(_options.UserSearchBase) ? _options.BaseDn : _options.UserSearchBase;
+        var searchBase = string.IsNullOrWhiteSpace(settings.UserSearchBase) ? settings.BaseDn : settings.UserSearchBase;
         var request = new LdapSearchRequest(searchBase, "(&(objectClass=user)(objectCategory=person))", SearchScope.Subtree,
             "objectGUID", "sAMAccountName", "displayName", "mail", "title", "department", "manager", "userAccountControl");
         var response = (SearchResponse)connection.SendRequest(request);
@@ -84,20 +122,21 @@ public class LdapIdentityProvider : IIdentityProvider
                 enabled));
         }
 
-        return Task.FromResult<IReadOnlyList<DirectoryUserSnapshot>>(users);
+        return users;
     }
 
-    public Task<IReadOnlyList<DirectoryDepartmentSnapshot>> GetDirectoryDepartmentsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DirectoryDepartmentSnapshot>> GetDirectoryDepartmentsAsync(CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled)
+        var settings = await LoadSettingsAsync(cancellationToken);
+        if (!settings.Enabled)
         {
-            throw new InvalidOperationException("LDAP is not enabled.");
+            throw new InvalidOperationException("Active Directory is not enabled.");
         }
 
-        using var connection = CreateConnection();
-        BindServiceAccount(connection);
+        using var connection = CreateConnection(settings);
+        BindServiceAccount(connection, settings);
 
-        var request = new LdapSearchRequest(_options.BaseDn, "(objectClass=organizationalUnit)", SearchScope.Subtree, "ou", "description");
+        var request = new LdapSearchRequest(settings.BaseDn, "(objectClass=organizationalUnit)", SearchScope.Subtree, "ou", "description");
         var response = (SearchResponse)connection.SendRequest(request);
         var departments = new List<DirectoryDepartmentSnapshot>();
 
@@ -109,29 +148,29 @@ public class LdapIdentityProvider : IIdentityProvider
             departments.Add(new DirectoryDepartmentSnapshot(name, name, code, null));
         }
 
-        return Task.FromResult<IReadOnlyList<DirectoryDepartmentSnapshot>>(departments);
+        return departments;
     }
 
-    private LdapConnection CreateConnection()
+    private static LdapConnection CreateConnection(EffectiveLdapSettings settings)
     {
-        var identifier = new LdapDirectoryIdentifier(_options.Host, _options.Port, _options.UseSsl, false);
+        var identifier = new LdapDirectoryIdentifier(settings.Host, settings.Port, settings.UseSsl, false);
         return new LdapConnection(identifier) { Timeout = TimeSpan.FromSeconds(15) };
     }
 
-    private void BindServiceAccount(LdapConnection connection)
+    private static void BindServiceAccount(LdapConnection connection, EffectiveLdapSettings settings)
     {
-        connection.Credential = new NetworkCredential(_options.BindDn, _options.BindPassword);
+        connection.Credential = new NetworkCredential(settings.BindDn, settings.BindPassword);
         connection.AuthType = AuthType.Basic;
         connection.Bind();
     }
 
-    private SearchResultEntry? SearchUserEntry(string username)
+    private static SearchResultEntry? SearchUserEntry(EffectiveLdapSettings settings, string username)
     {
-        using var connection = CreateConnection();
-        BindServiceAccount(connection);
+        using var connection = CreateConnection(settings);
+        BindServiceAccount(connection, settings);
 
-        var searchBase = string.IsNullOrWhiteSpace(_options.UserSearchBase) ? _options.BaseDn : _options.UserSearchBase;
-        var filter = string.Format(_options.UserFilter, username);
+        var searchBase = string.IsNullOrWhiteSpace(settings.UserSearchBase) ? settings.BaseDn : settings.UserSearchBase;
+        var filter = string.Format(settings.UserFilter, username);
         var request = new LdapSearchRequest(searchBase, filter, SearchScope.Subtree,
             "distinguishedName", "objectGUID", "sAMAccountName", "displayName", "mail", "title", "department", "manager");
         var response = (SearchResponse)connection.SendRequest(request);

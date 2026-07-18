@@ -7,7 +7,7 @@ public class Department : Entity
     public string AdObjectId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
-    public Guid? ParentDepartmentId { get; set; }
+    public int? ParentDepartmentId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime LastSyncedAtUtc { get; set; }
 

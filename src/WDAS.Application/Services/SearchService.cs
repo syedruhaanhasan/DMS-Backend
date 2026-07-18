@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
@@ -36,9 +37,10 @@ public partial class SearchService
             query = query.Where(i => i.ArchiveDocumentId == request.ArchiveDocumentId);
         }
 
-        if (request.OwnerUserId.HasValue)
+        var ownerUserId = IdParsing.ParseOptional(request.OwnerUserId);
+        if (ownerUserId.HasValue)
         {
-            query = query.Where(i => i.OwnerUserId == request.OwnerUserId);
+            query = query.Where(i => i.OwnerUserId == ownerUserId);
         }
 
         if (request.Status.HasValue)
@@ -67,9 +69,10 @@ public partial class SearchService
             query = query.Where(i => i.SubmittedAtUtc <= request.ToUtc);
         }
 
-        if (request.ApproverUserId.HasValue)
+        var approverUserId = IdParsing.ParseOptional(request.ApproverUserId);
+        if (approverUserId.HasValue)
         {
-            var approverId = request.ApproverUserId.Value;
+            var approverId = approverUserId.Value;
             var docIds = _db.WorkflowSteps
                 .Where(s => s.ApproverUserId == approverId)
                 .Select(s => s.DocumentId)
@@ -94,7 +97,7 @@ public partial class SearchService
         return new SearchResultDto(
             total,
             items.Select(i => new SearchResultItemDto(
-                i.DocumentId,
+                IdParsing.ToApi(i.DocumentId),
                 i.RecordNumber,
                 i.ArchiveDocumentId,
                 i.Subject,
@@ -152,7 +155,7 @@ public partial class DocumentSearchIndexer : IDocumentSearchIndexer
         _clock = clock;
     }
 
-    public async Task IndexDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task IndexDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Owner)

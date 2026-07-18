@@ -39,12 +39,20 @@ public static class AuditChainVerifier
 
     public static string ComputeEntryHash(string previousHash, AuditLogEntry entry)
     {
+        // HashVersion 1: prefer legacy Guid identity fields when present (pre-int migration rows).
+        object? actorId = entry.HashVersion <= 1 && entry.LegacyActorUserId.HasValue
+            ? entry.LegacyActorUserId
+            : entry.ActorUserId;
+        object? documentId = entry.HashVersion <= 1 && entry.LegacyDocumentId.HasValue
+            ? entry.LegacyDocumentId
+            : entry.DocumentId;
+
         var payload = string.Join('|',
             previousHash,
             entry.SequenceNumber,
             entry.EventType,
-            entry.ActorUserId,
-            entry.DocumentId,
+            actorId,
+            documentId,
             entry.EntityType,
             entry.EntityId,
             entry.Action,

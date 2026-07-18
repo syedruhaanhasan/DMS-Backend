@@ -5,13 +5,13 @@ namespace WDAS.Domain.Entities;
 
 public class Notification : Entity
 {
-    public Guid? RecipientUserId { get; set; }
+    public int? RecipientUserId { get; set; }
     public string? RecipientEmail { get; set; }
     public NotificationEventType EventType { get; set; }
     public NotificationChannel Channel { get; set; }
     public NotificationDeliveryStatus Status { get; set; } = NotificationDeliveryStatus.Pending;
-    public Guid? DocumentId { get; set; }
-    public Guid? WorkflowStepId { get; set; }
+    public int? DocumentId { get; set; }
+    public int? WorkflowStepId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public DateTime? SentAtUtc { get; set; }

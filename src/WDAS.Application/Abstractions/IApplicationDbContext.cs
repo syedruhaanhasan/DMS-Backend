@@ -26,8 +26,10 @@ public interface IApplicationDbContext
     IQueryable<DocumentSearchIndex> DocumentSearchIndexes { get; }
     IQueryable<PushDeviceRegistration> PushDeviceRegistrations { get; }
     IQueryable<DocumentTypeDefinition> DocumentTypeDefinitions { get; }
+    IQueryable<ActiveDirectorySetting> ActiveDirectorySettings { get; }
+    IQueryable<RevokedToken> RevokedTokens { get; }
 
     void Add<T>(T entity) where T : class;
     void RemoveRange<T>(IEnumerable<T> entities) where T : class;
-    Task<T?> FindAsync<T>(Guid id, CancellationToken cancellationToken = default) where T : class;
+    Task<T?> FindAsync<T>(int id, CancellationToken cancellationToken = default) where T : class;
 }

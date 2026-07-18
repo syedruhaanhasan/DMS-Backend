@@ -4,7 +4,7 @@ namespace WDAS.Domain.Entities;
 
 public class ApprovalMatrixTier : Entity
 {
-    public Guid WorkflowVersionId { get; set; }
+    public int WorkflowVersionId { get; set; }
     public int SequenceOrder { get; set; }
     public decimal MinAmount { get; set; }
     public decimal? MaxAmount { get; set; }

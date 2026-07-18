@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\WDAS.Domain\WDAS.Domain.csproj" />
     <ProjectReference Include="..\..\src\WDAS.Application\WDAS.Application.csproj" />
+    <ProjectReference Include="..\..\src\WDAS.Infrastructure\WDAS.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

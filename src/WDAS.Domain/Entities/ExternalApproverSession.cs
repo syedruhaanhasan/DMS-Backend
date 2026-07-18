@@ -4,7 +4,7 @@ namespace WDAS.Domain.Entities;
 
 public class ExternalApproverSession : Entity
 {
-    public Guid WorkflowStepId { get; set; }
+    public int WorkflowStepId { get; set; }
     public string ApproverName { get; set; } = string.Empty;
     public string ApproverEmail { get; set; } = string.Empty;
     public string SecureTokenHash { get; set; } = string.Empty;

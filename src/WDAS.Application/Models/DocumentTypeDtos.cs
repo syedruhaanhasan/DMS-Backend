@@ -1,7 +1,7 @@
 namespace WDAS.Application.Models;
 
 public record DocumentTypeDto(
-    Guid Id,
+    string Id,
     string Name,
     string Code,
     string? Description,

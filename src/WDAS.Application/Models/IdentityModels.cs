@@ -1,11 +1,11 @@
 namespace WDAS.Application.Models;
 
 public record AuthenticatedUser(
-    Guid UserId,
+    int UserId,
     string AdObjectId,
     string DisplayName,
     string Email,
-    Guid DepartmentId,
+    int DepartmentId,
     IReadOnlyCollection<string> RoleCodes);
 
 public record DirectoryUserSnapshot(

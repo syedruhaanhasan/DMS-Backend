@@ -5,7 +5,7 @@ namespace WDAS.Domain.Entities;
 
 public class ApproverGroup : Entity
 {
-    public Guid WorkflowVersionId { get; set; }
+    public int WorkflowVersionId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int SequenceOrder { get; set; }
     public GroupApprovalRequirement Requirement { get; set; } = GroupApprovalRequirement.AnyOneMember;

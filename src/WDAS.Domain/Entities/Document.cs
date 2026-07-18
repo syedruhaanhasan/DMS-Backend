@@ -8,10 +8,10 @@ public class Document : Entity
     public long RecordNumber { get; set; }
     /// <summary>Document content revision (v1, v2, …). Bumps when owner revises after rejection.</summary>
     public int RevisionNumber { get; set; } = 1;
-    public Guid OwnerUserId { get; set; }
-    public Guid DepartmentId { get; set; }
-    public Guid WorkflowId { get; set; }
-    public Guid? WorkflowVersionId { get; set; }
+    public int OwnerUserId { get; set; }
+    public int DepartmentId { get; set; }
+    public int WorkflowId { get; set; }
+    public int? WorkflowVersionId { get; set; }
     public string ToRecipients { get; set; } = string.Empty;
     public string FromDisplay { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;

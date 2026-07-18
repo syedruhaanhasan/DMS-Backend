@@ -60,13 +60,13 @@ public static class MatrixTierValidator
         }
     }
 
-    public static List<Guid> ParseApproverIds(string json)
+    public static List<int> ParseApproverIds(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
             return [];
         }
 
-        return JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
+        return JsonSerializer.Deserialize<List<int>>(json) ?? [];
     }
 }

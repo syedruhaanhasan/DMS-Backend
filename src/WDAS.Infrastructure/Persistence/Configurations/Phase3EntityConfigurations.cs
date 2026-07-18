@@ -10,6 +10,7 @@ public class AuditLogEntryConfiguration : IEntityTypeConfiguration<AuditLogEntry
     {
         builder.ToTable("AuditLogEntries");
         builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).UseIdentityColumn();
         builder.HasIndex(e => e.SequenceNumber).IsUnique();
         builder.HasIndex(e => e.DocumentId);
         builder.HasIndex(e => e.CreatedAtUtc);
@@ -23,6 +24,7 @@ public class DocumentSearchIndexConfiguration : IEntityTypeConfiguration<Documen
 {
     public void Configure(EntityTypeBuilder<DocumentSearchIndex> builder)
     {
+        builder.Property(i => i.Id).UseIdentityColumn();
         builder.HasIndex(i => i.DocumentId).IsUnique();
         builder.HasIndex(i => i.ArchiveDocumentId);
         builder.Property(i => i.Subject).HasMaxLength(500).IsRequired();
@@ -35,6 +37,7 @@ public class PushDeviceRegistrationConfiguration : IEntityTypeConfiguration<Push
 {
     public void Configure(EntityTypeBuilder<PushDeviceRegistration> builder)
     {
+        builder.Property(d => d.Id).UseIdentityColumn();
         builder.HasIndex(d => new { d.UserId, d.DeviceToken }).IsUnique();
         builder.Property(d => d.DeviceToken).HasMaxLength(512).IsRequired();
         builder.HasOne(d => d.User).WithMany().HasForeignKey(d => d.UserId);

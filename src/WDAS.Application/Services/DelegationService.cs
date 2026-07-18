@@ -39,7 +39,8 @@ public class DelegationService
         var approver = await _db.Users.FirstOrDefaultAsync(u => u.Id == _currentUser.UserId, cancellationToken)
             ?? throw new DomainException("Current user not found.");
 
-        var delegateUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.DelegateUserId, cancellationToken)
+        var delegateUserId = IdParsing.ParseRequired(request.DelegateUserId, "Delegate user id");
+        var delegateUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == delegateUserId, cancellationToken)
             ?? throw new DomainException("Delegate user not found.");
 
         if (delegateUser.Id == approver.Id)
@@ -74,10 +75,10 @@ public class DelegationService
             cancellationToken);
 
         return new DelegationDto(
-            delegation.Id,
-            approver.Id,
+            IdParsing.ToApi(delegation.Id),
+            IdParsing.ToApi(approver.Id),
             approver.DisplayName,
-            delegateUser.Id,
+            IdParsing.ToApi(delegateUser.Id),
             delegateUser.DisplayName,
             delegation.StartsAtUtc,
             delegation.EndsAtUtc,
@@ -104,7 +105,7 @@ public class DelegationService
         if (!_currentUser.IsInRole(RoleNames.SuperAdmin))
         {
             var userId = _currentUser.UserId;
-            if (userId == Guid.Empty)
+            if (userId == 0)
             {
                 throw new DomainException("Authentication required.");
             }
@@ -116,10 +117,10 @@ public class DelegationService
             .ToListAsync(cancellationToken);
 
         return rows.Select(d => new DelegationDto(
-            d.Id,
-            d.ApproverUserId,
+            IdParsing.ToApi(d.Id),
+            IdParsing.ToApi(d.ApproverUserId),
             d.Approver.DisplayName,
-            d.DelegateUserId,
+            IdParsing.ToApi(d.DelegateUserId),
             d.Delegate.DisplayName,
             d.StartsAtUtc,
             d.EndsAtUtc,
@@ -127,7 +128,7 @@ public class DelegationService
             d.Reason)).ToList();
     }
 
-    public async Task<DelegationDto> SetDelegationActiveStatusAsync(Guid delegationId, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<DelegationDto> SetDelegationActiveStatusAsync(int delegationId, bool isActive, CancellationToken cancellationToken = default)
     {
         var delegation = await _db.Delegations
             .Include(d => d.Approver)
@@ -145,10 +146,10 @@ public class DelegationService
         await SaveAsync(cancellationToken);
 
         return new DelegationDto(
-            delegation.Id,
-            delegation.ApproverUserId,
+            IdParsing.ToApi(delegation.Id),
+            IdParsing.ToApi(delegation.ApproverUserId),
             delegation.Approver.DisplayName,
-            delegation.DelegateUserId,
+            IdParsing.ToApi(delegation.DelegateUserId),
             delegation.Delegate.DisplayName,
             delegation.StartsAtUtc,
             delegation.EndsAtUtc,
@@ -156,7 +157,7 @@ public class DelegationService
             delegation.Reason);
     }
 
-    public async Task DeactivateDelegationAsync(Guid delegationId, CancellationToken cancellationToken = default)
+    public async Task DeactivateDelegationAsync(int delegationId, CancellationToken cancellationToken = default)
     {
         var delegation = await _db.Delegations.FirstOrDefaultAsync(d => d.Id == delegationId, cancellationToken)
             ?? throw new DomainException("Delegation not found.");
@@ -171,7 +172,7 @@ public class DelegationService
         await SaveAsync(cancellationToken);
     }
 
-    public async Task<DocumentDto> ReassignStepAsync(Guid stepId, ReassignStepRequest request, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> ReassignStepAsync(int stepId, ReassignStepRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
@@ -193,7 +194,7 @@ public class DelegationService
             throw new DomainException("Only the active step can be reassigned.");
         }
 
-        var newApprover = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.NewApproverUserId, cancellationToken)
+        var newApprover = await _db.Users.FirstOrDefaultAsync(u => u.Id == IdParsing.ParseRequired(request.NewApproverUserId, "New approver user id"), cancellationToken)
             ?? throw new DomainException("New approver not found.");
 
         var now = _clock.UtcNow;
@@ -215,12 +216,12 @@ public class DelegationService
         return await _documentService.GetDocumentAsync(step.DocumentId, cancellationToken);
     }
 
-    internal async Task<Guid?> ResolveDelegateApproverIdAsync(Guid approverUserId, CancellationToken cancellationToken)
+    internal async Task<int?> ResolveDelegateApproverIdAsync(int approverUserId, CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         return await _db.Delegations
             .Where(d => d.ApproverUserId == approverUserId && d.IsActive && d.StartsAtUtc <= now && d.EndsAtUtc >= now)
-            .Select(d => (Guid?)d.DelegateUserId)
+            .Select(d => (int?)d.DelegateUserId)
             .FirstOrDefaultAsync(cancellationToken);
     }
 

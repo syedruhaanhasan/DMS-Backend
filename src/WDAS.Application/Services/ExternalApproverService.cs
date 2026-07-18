@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Application.Notifications;
@@ -41,9 +42,10 @@ public class ExternalApproverService
         CreateExternalApproverRequest request,
         CancellationToken cancellationToken = default)
     {
+        var workflowStepId = IdParsing.ParseRequired(request.WorkflowStepId, "Workflow step id");
         var step = await _db.WorkflowSteps
             .Include(s => s.Document)
-            .FirstOrDefaultAsync(s => s.Id == request.WorkflowStepId, cancellationToken)
+            .FirstOrDefaultAsync(s => s.Id == workflowStepId, cancellationToken)
             ?? throw new DomainException("Workflow step not found.");
 
         if (step.Document.OwnerUserId != _currentUser.UserId &&
@@ -84,8 +86,8 @@ public class ExternalApproverService
             cancellationToken);
 
         return new ExternalApproverSessionDto(
-            session.Id,
-            session.WorkflowStepId,
+            IdParsing.ToApi(session.Id),
+            IdParsing.ToApi(session.WorkflowStepId),
             session.ApproverEmail,
             session.LinkExpiresAtUtc,
             token);
@@ -123,9 +125,9 @@ public class ExternalApproverService
             };
 
             return new ExternalApproverListItemDto(
-                s.Id,
-                s.WorkflowStepId,
-                s.WorkflowStep.DocumentId,
+                IdParsing.ToApi(s.Id),
+                IdParsing.ToApi(s.WorkflowStepId),
+                IdParsing.ToApi(s.WorkflowStep.DocumentId),
                 s.WorkflowStep.Document.Subject,
                 s.ApproverName,
                 s.ApproverEmail,
@@ -138,7 +140,7 @@ public class ExternalApproverService
     }
 
     public async Task<ExternalApproverSessionDto> ResendLinkAsync(
-        Guid sessionId,
+        int sessionId,
         CancellationToken cancellationToken = default)
     {
         var session = await _db.ExternalApproverSessions
@@ -186,8 +188,8 @@ public class ExternalApproverService
             cancellationToken);
 
         return new ExternalApproverSessionDto(
-            session.Id,
-            session.WorkflowStepId,
+            IdParsing.ToApi(session.Id),
+            IdParsing.ToApi(session.WorkflowStepId),
             session.ApproverEmail,
             session.LinkExpiresAtUtc,
             token);
@@ -232,8 +234,8 @@ public class ExternalApproverService
 
         return new ExternalSessionDto(
             accessToken,
-            session.WorkflowStepId,
-            session.WorkflowStep.DocumentId,
+            IdParsing.ToApi(session.WorkflowStepId),
+            IdParsing.ToApi(session.WorkflowStep.DocumentId),
             session.LinkExpiresAtUtc);
     }
 
@@ -247,8 +249,8 @@ public class ExternalApproverService
         string token,
         string otp,
         bool isResend,
-        Guid documentId,
-        Guid workflowStepId,
+        int documentId,
+        int workflowStepId,
         CancellationToken cancellationToken)
     {
         var secureLink = BuildSecureLinkUrl(token);

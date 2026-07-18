@@ -4,6 +4,6 @@ namespace WDAS.Application.Abstractions;
 
 public interface IJwtTokenService
 {
-    string CreateToken(AuthenticatedUser user);
-    string CreateExternalSessionToken(Guid sessionId, Guid workflowStepId, Guid documentId, DateTime expiresAtUtc);
+    AccessTokenResult CreateToken(AuthenticatedUser user);
+    string CreateExternalSessionToken(int sessionId, int workflowStepId, int documentId, DateTime expiresAtUtc);
 }

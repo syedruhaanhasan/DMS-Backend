@@ -1,8 +1,8 @@
 namespace WDAS.Application.Models;
 
 public record AttachmentDto(
-    Guid Id,
-    Guid DocumentId,
+    string Id,
+    string DocumentId,
     string FileName,
     string? LogicalName,
     string ContentType,
@@ -14,13 +14,13 @@ public record AttachmentDto(
     DateTime CreatedAtUtc);
 
 public record AttachmentPreviewDto(
-    Guid Id,
+    string Id,
     string ContentType,
     string FileName,
     bool IsPreviewGenerated);
 
 public record CreateDelegationRequest(
-    Guid DelegateUserId,
+    string DelegateUserId,
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,
     string? Reason,
@@ -28,26 +28,26 @@ public record CreateDelegationRequest(
     bool IsActive = true);
 
 public record DelegationDto(
-    Guid Id,
-    Guid ApproverUserId,
+    string Id,
+    string ApproverUserId,
     string ApproverDisplayName,
-    Guid DelegateUserId,
+    string DelegateUserId,
     string DelegateDisplayName,
     DateTime StartsAtUtc,
     DateTime EndsAtUtc,
     bool IsActive,
     string? Reason);
 
-public record ReassignStepRequest(Guid NewApproverUserId, string Reason);
+public record ReassignStepRequest(string NewApproverUserId, string Reason);
 
 public record CreateExternalApproverRequest(
-    Guid WorkflowStepId,
+    string WorkflowStepId,
     string ApproverName,
     string ApproverEmail);
 
 public record ExternalApproverSessionDto(
-    Guid Id,
-    Guid WorkflowStepId,
+    string Id,
+    string WorkflowStepId,
     string ApproverEmail,
     DateTime LinkExpiresAtUtc,
     string SecureLinkToken);
@@ -56,8 +56,8 @@ public record VerifyExternalOtpRequest(string SecureLinkToken, string Otp, strin
 
 public record ExternalSessionDto(
     string AccessToken,
-    Guid WorkflowStepId,
-    Guid DocumentId,
+    string WorkflowStepId,
+    string DocumentId,
     DateTime ExpiresAtUtc);
 
 public record CancelDocumentRequest(string? Reason);
@@ -65,9 +65,9 @@ public record CancelDocumentRequest(string? Reason);
 public record FinalizeDocumentRequest(string? Comment);
 
 public record RepositoryDocumentDto(
-    Guid Id,
+    string Id,
     string ArchiveDocumentId,
-    Guid SourceDocumentId,
+    string SourceDocumentId,
     string Subject,
     string BodyHtmlSnapshot,
     string ApprovalTrailJson,
@@ -76,9 +76,9 @@ public record RepositoryDocumentDto(
     bool HasArchivePdf);
 
 public record DashboardDocumentItemDto(
-    Guid DocumentId,
+    string DocumentId,
     long RecordNumber,
-    Guid OwnerUserId,
+    string OwnerUserId,
     string Subject,
     string Status,
     string WorkflowName,
@@ -86,7 +86,7 @@ public record DashboardDocumentItemDto(
     DateTime? DueAtUtc,
     bool IsSlaBreached,
     string SlaClassification,
-    Guid? ActiveStepId,
+    string? ActiveStepId,
     bool IsDelegated = false);
 
 public record PersonalDashboardDto(
@@ -96,6 +96,6 @@ public record PersonalDashboardDto(
     IReadOnlyCollection<DashboardDocumentItemDto> RecentlyCompleted);
 
 public record DepartmentDashboardDto(
-    Guid DepartmentId,
+    string DepartmentId,
     string DepartmentName,
     IReadOnlyCollection<DashboardDocumentItemDto> Documents);

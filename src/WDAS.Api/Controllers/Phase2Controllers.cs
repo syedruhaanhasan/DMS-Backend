@@ -6,7 +6,7 @@ using WDAS.Application.Services;
 namespace WDAS.Api.Controllers;
 
 [ApiController]
-[Route("api/documents/{documentId:guid}/attachments")]
+[Route("api/documents/{documentId:int}/attachments")]
 [Authorize]
 public class AttachmentsController : ControllerBase
 {
@@ -18,7 +18,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> List(Guid documentId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<AttachmentDto>>> List(int documentId, CancellationToken cancellationToken)
     {
         return Ok(await _attachmentService.ListForDocumentAsync(documentId, cancellationToken));
     }
@@ -26,7 +26,7 @@ public class AttachmentsController : ControllerBase
     [HttpPost]
     [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<ActionResult<AttachmentDto>> Upload(
-        Guid documentId,
+        int documentId,
         IFormFile file,
         [FromForm] string? logicalName,
         CancellationToken cancellationToken)
@@ -62,8 +62,8 @@ public class AttachmentPreviewController : ControllerBase
         _attachmentService = attachmentService;
     }
 
-    [HttpGet("{id:guid}/preview")]
-    public async Task<IActionResult> Preview(Guid id, CancellationToken cancellationToken)
+    [HttpGet("{id:int}/preview")]
+    public async Task<IActionResult> Preview(int id, CancellationToken cancellationToken)
     {
         var (content, contentType, fileName) = await _attachmentService.GetPreviewAsync(id, cancellationToken);
         return File(content, contentType, fileName);
@@ -121,16 +121,16 @@ public class DelegationsController : ControllerBase
         return Ok(await _delegationService.ListDelegationsAsync(isActive, cancellationToken));
     }
 
-    [HttpPut("{id:guid}/status")]
+    [HttpPut("{id:int}/status")]
     [Authorize(Policy = "perm:config.delegation.check")]
-    public async Task<ActionResult<DelegationDto>> SetStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<DelegationDto>> SetStatus(int id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _delegationService.SetDelegationActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Policy = "perm:config.delegation.check")]
-    public async Task<IActionResult> Deactivate(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Deactivate(int id, CancellationToken cancellationToken)
     {
         await _delegationService.DeactivateDelegationAsync(id, cancellationToken);
         return NoContent();
@@ -165,9 +165,9 @@ public class ExternalApproversController : ControllerBase
         return Ok(await _externalApproverService.ListExternalApproversAsync(cancellationToken));
     }
 
-    [HttpPost("{id:guid}/resend")]
+    [HttpPost("{id:int}/resend")]
     [Authorize(Policy = "perm:config.external_approvers.check")]
-    public async Task<ActionResult<ExternalApproverSessionDto>> Resend(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<ExternalApproverSessionDto>> Resend(int id, CancellationToken cancellationToken)
     {
         return Ok(await _externalApproverService.ResendLinkAsync(id, cancellationToken));
     }
@@ -215,9 +215,9 @@ public class DashboardController : ControllerBase
         return Ok(await _dashboardService.GetPersonalDashboardAsync(cancellationToken));
     }
 
-    [HttpGet("department/{id:guid}")]
+    [HttpGet("department/{id:int}")]
     [Authorize(Policy = "SuperAdmin")]
-    public async Task<ActionResult<DepartmentDashboardDto>> GetDepartment(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<DepartmentDashboardDto>> GetDepartment(int id, CancellationToken cancellationToken)
     {
         return Ok(await _dashboardService.GetDepartmentDashboardAsync(id, cancellationToken));
     }
@@ -243,8 +243,8 @@ public class NotificationsController : ControllerBase
         return Ok(await _notificationService.GetMyNotificationsAsync(take, cancellationToken));
     }
 
-    [HttpPost("{id:guid}/read")]
-    public async Task<IActionResult> MarkRead(Guid id, CancellationToken cancellationToken)
+    [HttpPost("{id:int}/read")]
+    public async Task<IActionResult> MarkRead(int id, CancellationToken cancellationToken)
     {
         await _notificationService.MarkReadAsync(id, cancellationToken);
         return NoContent();

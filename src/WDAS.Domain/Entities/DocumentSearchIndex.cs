@@ -2,15 +2,15 @@ namespace WDAS.Domain.Entities;
 
 public class DocumentSearchIndex
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid DocumentId { get; set; }
+    public int Id { get; set; }
+    public int DocumentId { get; set; }
     public long RecordNumber { get; set; }
     public string? ArchiveDocumentId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string BodyText { get; set; } = string.Empty;
     public string OwnerDisplayName { get; set; } = string.Empty;
-    public Guid OwnerUserId { get; set; }
-    public Guid DepartmentId { get; set; }
+    public int OwnerUserId { get; set; }
+    public int DepartmentId { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal? Amount { get; set; }
     public DateTime? SubmittedAtUtc { get; set; }

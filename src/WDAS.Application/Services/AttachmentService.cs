@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Application.Options;
@@ -38,12 +39,12 @@ public class AttachmentService
     }
 
     public async Task<AttachmentDto> UploadAsync(
-        Guid documentId,
+        int documentId,
         Stream fileStream,
         string fileName,
         string contentType,
         string? logicalName,
-        Guid? workflowStepActionId,
+        int? workflowStepActionId,
         CancellationToken cancellationToken = default)
     {
         var document = await LoadDocumentAsync(documentId, cancellationToken);
@@ -53,7 +54,8 @@ public class AttachmentService
 
         var now = _clock.UtcNow;
         var extension = Path.GetExtension(fileName);
-        var storageKey = $"{documentId:N}/{Guid.NewGuid():N}{extension}";
+        var attachmentFolder = $"{now:yyyy}/{now:MM}/{documentId}";
+        var storageKey = $"{attachmentFolder}/{Guid.NewGuid():N}{extension}";
 
         await using var scanStream = new MemoryStream();
         await fileStream.CopyToAsync(scanStream, cancellationToken);
@@ -86,9 +88,10 @@ public class AttachmentService
         var preview = await _previewGenerator.GenerateAsync(scanStream, contentType, fileName, cancellationToken);
         if (preview is not null)
         {
-            previewKey = preview.StorageKey;
+            var previewExtension = Path.GetExtension(preview.StorageKey);
+            previewKey = $"{attachmentFolder}/previews/{Guid.NewGuid():N}{previewExtension}";
             previewContentType = preview.ContentType;
-            await _fileStorage.SaveAsync(preview.Content, preview.StorageKey, cancellationToken);
+            await _fileStorage.SaveAsync(preview.Content, previewKey, cancellationToken);
             await preview.Content.DisposeAsync();
         }
 
@@ -142,7 +145,7 @@ public class AttachmentService
     }
 
     public async Task<(Stream Content, string ContentType, string FileName)> GetPreviewAsync(
-        Guid attachmentId,
+        int attachmentId,
         CancellationToken cancellationToken = default)
     {
         var attachment = await _db.Attachments
@@ -161,7 +164,7 @@ public class AttachmentService
         return (stream, contentType, attachment.FileName);
     }
 
-    public async Task<IReadOnlyList<AttachmentDto>> ListForDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AttachmentDto>> ListForDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await LoadDocumentAsync(documentId, cancellationToken);
         EnsureCanView(document);
@@ -188,7 +191,7 @@ public class AttachmentService
         }
     }
 
-    private void EnsureCanUpload(Document document, Guid? workflowStepActionId)
+    private void EnsureCanUpload(Document document, int? workflowStepActionId)
     {
         if (workflowStepActionId.HasValue)
         {
@@ -244,7 +247,7 @@ public class AttachmentService
         }
     }
 
-    private async Task<Document> LoadDocumentAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task<Document> LoadDocumentAsync(int documentId, CancellationToken cancellationToken)
     {
         return await _db.Documents
             .Include(d => d.WorkflowSteps)
@@ -255,8 +258,8 @@ public class AttachmentService
 
     private static AttachmentDto MapAttachment(Attachment attachment) =>
         new(
-            attachment.Id,
-            attachment.DocumentId,
+            IdParsing.ToApi(attachment.Id),
+            IdParsing.ToApi(attachment.DocumentId),
             attachment.FileName,
             attachment.LogicalName,
             attachment.ContentType,

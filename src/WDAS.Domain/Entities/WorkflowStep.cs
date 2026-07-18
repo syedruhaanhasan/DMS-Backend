@@ -5,11 +5,11 @@ namespace WDAS.Domain.Entities;
 
 public class WorkflowStep : Entity
 {
-    public Guid DocumentId { get; set; }
-    public Guid WorkflowVersionId { get; set; }
+    public int DocumentId { get; set; }
+    public int WorkflowVersionId { get; set; }
     public int StepOrder { get; set; }
-    public Guid? ApproverUserId { get; set; }
-    public Guid? ApproverGroupId { get; set; }
+    public int? ApproverUserId { get; set; }
+    public int? ApproverGroupId { get; set; }
     public string? GroupName { get; set; }
     public GroupApprovalRequirement? GroupRequirement { get; set; }
     public WorkflowStepStatus Status { get; set; } = WorkflowStepStatus.Pending;

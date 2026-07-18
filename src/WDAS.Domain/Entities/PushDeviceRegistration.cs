@@ -2,8 +2,8 @@ namespace WDAS.Domain.Entities;
 
 public class PushDeviceRegistration
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid UserId { get; set; }
+    public int Id { get; set; }
+    public int UserId { get; set; }
     public string Platform { get; set; } = string.Empty;
     public string DeviceToken { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;

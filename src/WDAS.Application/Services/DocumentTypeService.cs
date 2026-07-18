@@ -52,7 +52,7 @@ public class DocumentTypeService
 
         return await types
             .OrderBy(t => t.Name)
-            .Select(t => new DocumentTypeDto(t.Id, t.Name, t.Code, t.Description, t.Category, t.AmountRequired, t.IsActive))
+            .Select(t => new DocumentTypeDto(IdParsing.ToApi(t.Id), t.Name, t.Code, t.Description, t.Category, t.AmountRequired, t.IsActive))
             .ToListAsync(cancellationToken);
     }
 
@@ -102,10 +102,10 @@ public class DocumentTypeService
             DetailsJson: JsonSerializer.Serialize(new { documentType.Id, documentType.Name, documentType.Code })),
             cancellationToken);
 
-        return new DocumentTypeDto(documentType.Id, documentType.Name, documentType.Code, documentType.Description, documentType.Category, documentType.AmountRequired, documentType.IsActive);
+        return MapDocumentType(documentType);
     }
 
-    public async Task<DocumentTypeDto> UpdateAsync(Guid documentTypeId, UpdateDocumentTypeRequest request, CancellationToken cancellationToken = default)
+    public async Task<DocumentTypeDto> UpdateAsync(int documentTypeId, UpdateDocumentTypeRequest request, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -151,10 +151,10 @@ public class DocumentTypeService
             DetailsJson: JsonSerializer.Serialize(new { documentType.Id, documentType.Name, documentType.Code })),
             cancellationToken);
 
-        return new DocumentTypeDto(documentType.Id, documentType.Name, documentType.Code, documentType.Description, documentType.Category, documentType.AmountRequired, documentType.IsActive);
+        return MapDocumentType(documentType);
     }
 
-    public async Task DeleteAsync(Guid documentTypeId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int documentTypeId, CancellationToken cancellationToken = default)
     {
         EnsureSuperAdmin();
 
@@ -195,6 +195,16 @@ public class DocumentTypeService
 
     private static string NormalizeCategory(string? category) =>
         string.Equals(category, "financial", StringComparison.OrdinalIgnoreCase) ? "financial" : "non_financial";
+
+    private static DocumentTypeDto MapDocumentType(DocumentTypeDefinition documentType) =>
+        new(
+            IdParsing.ToApi(documentType.Id),
+            documentType.Name,
+            documentType.Code,
+            documentType.Description,
+            documentType.Category,
+            documentType.AmountRequired,
+            documentType.IsActive);
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

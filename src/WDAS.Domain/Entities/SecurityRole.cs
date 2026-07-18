@@ -16,7 +16,7 @@ public class SecurityRole : Entity
 
 public class SecurityRolePermission : Entity
 {
-    public Guid RoleId { get; set; }
+    public int RoleId { get; set; }
     public string PermissionKey { get; set; } = string.Empty;
 
     public SecurityRole Role { get; set; } = null!;

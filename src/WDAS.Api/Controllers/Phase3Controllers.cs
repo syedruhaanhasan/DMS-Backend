@@ -57,7 +57,7 @@ public class ReportsController : ControllerBase
 
     [HttpGet("approval-times")]
     public async Task<ActionResult<IReadOnlyList<ApprovalTimeReportDto>>> ApprovalTimes(
-        [FromQuery] Guid? departmentId,
+        [FromQuery] int? departmentId,
         [FromQuery] DateTime? fromUtc,
         [FromQuery] DateTime? toUtc,
         CancellationToken cancellationToken)
@@ -67,7 +67,7 @@ public class ReportsController : ControllerBase
 
     [HttpGet("bottlenecks")]
     public async Task<ActionResult<IReadOnlyList<BottleneckReportDto>>> Bottlenecks(
-        [FromQuery] Guid? departmentId,
+        [FromQuery] int? departmentId,
         CancellationToken cancellationToken)
     {
         return Ok(await _reportingService.GetBottlenecksAsync(departmentId, cancellationToken));
@@ -76,7 +76,7 @@ public class ReportsController : ControllerBase
     [HttpGet("volume-trends")]
     public async Task<ActionResult<IReadOnlyList<VolumeTrendReportDto>>> VolumeTrends(
         [FromQuery] int months = 6,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] int? departmentId = null,
         CancellationToken cancellationToken = default)
     {
         return Ok(await _reportingService.GetVolumeTrendsAsync(months, departmentId, cancellationToken));
@@ -84,7 +84,7 @@ public class ReportsController : ControllerBase
 
     [HttpGet("success-metrics")]
     public async Task<ActionResult<SuccessMetricsDto>> SuccessMetrics(
-        [FromQuery] Guid? departmentId,
+        [FromQuery] int? departmentId,
         CancellationToken cancellationToken)
     {
         return Ok(await _reportingService.GetSuccessMetricsAsync(departmentId, cancellationToken));
@@ -110,8 +110,8 @@ public class MobileController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("documents/{documentId:guid}/step-up")]
-    public async Task<ActionResult<StepUpChallengeDto>> GetStepUpRequirement(Guid documentId, CancellationToken cancellationToken)
+    [HttpGet("documents/{documentId:int}/step-up")]
+    public async Task<ActionResult<StepUpChallengeDto>> GetStepUpRequirement(int documentId, CancellationToken cancellationToken)
     {
         return Ok(await _mobileService.GetStepUpRequirementAsync(documentId, cancellationToken));
     }

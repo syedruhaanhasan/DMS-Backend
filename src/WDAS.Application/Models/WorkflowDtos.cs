@@ -3,8 +3,8 @@ using WDAS.Domain.Enums;
 namespace WDAS.Application.Models;
 
 public record WorkflowDto(
-    Guid Id,
-    Guid DepartmentId,
+    string Id,
+    string DepartmentId,
     string Name,
     string DocumentType,
     string? Description,
@@ -12,7 +12,7 @@ public record WorkflowDto(
     WorkflowVersionSummaryDto? ActiveVersion);
 
 public record WorkflowVersionSummaryDto(
-    Guid Id,
+    string Id,
     int VersionNumber,
     WorkflowVersionState State,
     ApprovalMode ApprovalMode,
@@ -22,7 +22,7 @@ public record WorkflowVersionSummaryDto(
     bool EscalationEnabled);
 
 public record CreateWorkflowRequest(
-    Guid DepartmentId,
+    string DepartmentId,
     string Name,
     string DocumentType,
     string? Description,
@@ -51,11 +51,11 @@ public record UpdateWorkflowRequest(
     IReadOnlyCollection<MatrixTierInput>? MatrixTiers = null);
 
 public record MatrixTierDto(
-    Guid Id,
+    string Id,
     int SequenceOrder,
     decimal MinAmount,
     decimal? MaxAmount,
-    IReadOnlyCollection<Guid> ApproverUserIds);
+    IReadOnlyCollection<string> ApproverUserIds);
 
 public record SaveMatrixTiersRequest(IReadOnlyCollection<MatrixTierInput> Tiers);
 
@@ -63,14 +63,14 @@ public record MatrixTierInput(
     int SequenceOrder,
     decimal MinAmount,
     decimal? MaxAmount,
-    IReadOnlyCollection<Guid> ApproverUserIds);
+    IReadOnlyCollection<string> ApproverUserIds);
 
 public record ApproverGroupDto(
-    Guid Id,
+    string Id,
     string Name,
     int SequenceOrder,
     GroupApprovalRequirement Requirement,
-    IReadOnlyCollection<Guid> MemberUserIds);
+    IReadOnlyCollection<string> MemberUserIds);
 
 public record SaveApproverGroupsRequest(IReadOnlyCollection<ApproverGroupInput> Groups);
 
@@ -78,4 +78,4 @@ public record ApproverGroupInput(
     string Name,
     int SequenceOrder,
     GroupApprovalRequirement Requirement,
-    IReadOnlyCollection<Guid> MemberUserIds);
+    IReadOnlyCollection<string> MemberUserIds);

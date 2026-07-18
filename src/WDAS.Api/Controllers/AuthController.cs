@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WDAS.Application.Models;
@@ -21,6 +22,24 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.LoginAsync(request, cancellationToken));
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        var jti = User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+
+        // Prefer the token's own expiry so the denylist entry lives exactly as long as needed.
+        var expiresAtUtc = DateTime.UtcNow.AddHours(8);
+        var expClaim = User.FindFirst("exp")?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+        if (long.TryParse(expClaim, out var expSeconds))
+        {
+            expiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(expSeconds).UtcDateTime;
+        }
+
+        await _authService.LogoutAsync(jti, expiresAtUtc, cancellationToken);
+        return NoContent();
     }
 
     [HttpPost("sync")]
@@ -59,23 +78,30 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetUsers), new { }, user);
     }
 
-    [HttpPut("{id:guid}/role")]
+    [HttpPut("{id:int}")]
     [Authorize(Policy = "perm:config.users.check")]
-    public async Task<ActionResult<UserSummaryDto>> UpdateRole(Guid id, [FromBody] UpdateUserRoleRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<UserSummaryDto>> UpdateUser(int id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
+    {
+        return Ok(await _authService.UpdateUserAsync(id, request, cancellationToken));
+    }
+
+    [HttpPut("{id:int}/role")]
+    [Authorize(Policy = "perm:config.users.check")]
+    public async Task<ActionResult<UserSummaryDto>> UpdateRole(int id, [FromBody] UpdateUserRoleRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.UpdateUserRoleAsync(id, request, cancellationToken));
     }
 
-    [HttpPut("{id:guid}/status")]
+    [HttpPut("{id:int}/status")]
     [Authorize(Policy = "perm:config.users.check")]
-    public async Task<ActionResult<UserSummaryDto>> SetUserStatus(Guid id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<UserSummaryDto>> SetUserStatus(int id, [FromBody] SetActiveStatusRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.SetUserActiveStatusAsync(id, request.IsActive, cancellationToken));
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Policy = "perm:config.users.check")]
-    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
     {
         await _authService.DeleteUserAsync(id, cancellationToken);
         return NoContent();
@@ -122,16 +148,16 @@ public class DepartmentsController : ControllerBase
         return CreatedAtAction(nameof(GetDepartments), new { }, department);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id:int}")]
     [Authorize(Policy = "perm:config.departments.write")]
-    public async Task<ActionResult<DepartmentDto>> UpdateDepartment(Guid id, [FromBody] UpdateDepartmentRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<DepartmentDto>> UpdateDepartment(int id, [FromBody] UpdateDepartmentRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _authService.UpdateDepartmentAsync(id, request, cancellationToken));
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Policy = "perm:config.departments.check")]
-    public async Task<IActionResult> DeleteDepartment(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteDepartment(int id, CancellationToken cancellationToken)
     {
         await _authService.DeleteDepartmentAsync(id, cancellationToken);
         return NoContent();
@@ -164,16 +190,16 @@ public class DocumentTypesController : ControllerBase
         return CreatedAtAction(nameof(GetDocumentTypes), new { }, documentType);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id:int}")]
     [Authorize(Policy = "perm:config.document_types.write")]
-    public async Task<ActionResult<DocumentTypeDto>> UpdateDocumentType(Guid id, [FromBody] UpdateDocumentTypeRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<DocumentTypeDto>> UpdateDocumentType(int id, [FromBody] UpdateDocumentTypeRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _documentTypeService.UpdateAsync(id, request, cancellationToken));
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Policy = "perm:config.document_types.check")]
-    public async Task<IActionResult> DeleteDocumentType(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteDocumentType(int id, CancellationToken cancellationToken)
     {
         await _documentTypeService.DeleteAsync(id, cancellationToken);
         return NoContent();

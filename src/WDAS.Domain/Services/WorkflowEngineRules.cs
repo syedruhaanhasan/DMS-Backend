@@ -25,7 +25,7 @@ public class WorkflowEngineRules
         return step;
     }
 
-    public static bool CanUserActOnStep(WorkflowStep step, Guid userId, IReadOnlyCollection<Guid> groupMemberUserIds)
+    public static bool CanUserActOnStep(WorkflowStep step, int userId, IReadOnlyCollection<int> groupMemberUserIds)
     {
         if (step.Status != WorkflowStepStatus.Active)
         {

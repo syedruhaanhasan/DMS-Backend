@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<ITokenRevocationService, TokenRevocationService>();
 
         var identityProvider = configuration.GetValue<string>("Identity:Provider") ?? "Dev";
         if (identityProvider.Equals("Ldap", StringComparison.OrdinalIgnoreCase))
@@ -98,6 +100,25 @@ public static class DependencyInjection
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
                     NameClaimType = ClaimTypes.NameIdentifier,
                     RoleClaimType = ClaimTypes.Role,
+                    // No leeway: an expired token is rejected immediately (default is 5 min).
+                    ClockSkew = TimeSpan.Zero,
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    // Reject tokens that were explicitly revoked (e.g. on sign-out) before expiry.
+                    OnTokenValidated = async context =>
+                    {
+                        var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                        if (!string.IsNullOrEmpty(jti))
+                        {
+                            var revocation = context.HttpContext.RequestServices
+                                .GetRequiredService<ITokenRevocationService>();
+                            if (await revocation.IsRevokedAsync(jti, context.HttpContext.RequestAborted))
+                            {
+                                context.Fail("Token has been revoked.");
+                            }
+                        }
+                    }
                 };
             });
 

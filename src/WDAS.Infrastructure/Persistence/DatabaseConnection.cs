@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 
 namespace WDAS.Infrastructure.Persistence;
@@ -74,6 +75,10 @@ public static class DatabaseConnection
                 options.UseSqlServer(connectionString);
                 break;
         }
+
+        // Incremental schema changes are applied via raw-SQL "ensure" patches in the
+        // seeder rather than EF migrations, so ignore the pending-model-changes guard.
+        options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
     }
 
     private static bool LooksLikePostgreSql(string connectionString) =>

@@ -24,9 +24,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.ApprovalMatrixTier", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ApproverUserIdsJson")
                         .IsRequired()
@@ -49,8 +51,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("WorkflowVersionId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowVersionId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -62,9 +64,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.ApproverGroup", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -83,8 +87,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("WorkflowVersionId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowVersionId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -96,12 +100,14 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.ApproverGroupMember", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
 
-                    b.Property<Guid>("ApproverGroupId")
-                        .HasColumnType("uuid");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApproverGroupId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -109,8 +115,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -123,9 +129,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Attachment", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -134,8 +142,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("DownloadRestricted")
                         .HasColumnType("boolean");
@@ -174,14 +182,14 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UploadedByUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("UploadedByUserId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("VersionNumber")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("WorkflowStepActionId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("WorkflowStepActionId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -196,9 +204,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.AuditLogEntry", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Action")
                         .IsRequired()
@@ -211,8 +221,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<string>("ActorEmail")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ActorUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("ActorUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ClientType")
                         .HasColumnType("text");
@@ -223,8 +233,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<string>("DetailsJson")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("EntityId")
                         .HasColumnType("text");
@@ -240,8 +250,17 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<int>("EventType")
                         .HasColumnType("integer");
 
+                    b.Property<int>("HashVersion")
+                        .HasColumnType("integer");
+
                     b.Property<string>("IpAddress")
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("LegacyActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("LegacyDocumentId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("PreviousHash")
                         .IsRequired()
@@ -265,12 +284,14 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Delegation", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
 
-                    b.Property<Guid>("ApproverUserId")
-                        .HasColumnType("uuid");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApproverUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("AutoReplyMessage")
                         .HasColumnType("text");
@@ -278,8 +299,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DelegateUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DelegateUserId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("EndsAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -307,9 +328,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Department", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdObjectId")
                         .IsRequired()
@@ -333,8 +356,8 @@ namespace WDAS.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<Guid?>("ParentDepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("ParentDepartmentId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -354,9 +377,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Document", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdHocApproverUserIdsJson")
                         .HasColumnType("text");
@@ -381,8 +406,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("FinalizedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -394,8 +419,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<bool>("IsBodyLocked")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("OwnerUserId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
@@ -430,11 +455,11 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("WorkflowId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowId")
+                        .HasColumnType("integer");
 
-                    b.Property<Guid?>("WorkflowVersionId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("WorkflowVersionId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -456,15 +481,17 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.DocumentRecipient", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("RecipientEmail")
                         .HasColumnType("text");
@@ -485,9 +512,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.DocumentSearchIndex", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<decimal?>("Amount")
                         .HasPrecision(18, 2)
@@ -500,11 +529,11 @@ namespace WDAS.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
 
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("FinalizedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -516,8 +545,8 @@ namespace WDAS.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("OwnerUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("OwnerUserId")
+                        .HasColumnType("integer");
 
                     b.Property<long>("RecordNumber")
                         .HasColumnType("bigint");
@@ -550,9 +579,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.DocumentTypeDefinition", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("AmountRequired")
                         .ValueGeneratedOnAdd()
@@ -597,9 +628,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.ExternalApproverSession", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ApproverEmail")
                         .IsRequired()
@@ -641,8 +674,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<string>("VerifiedFromIp")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("WorkflowStepId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowStepId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -656,9 +689,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Notification", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Body")
                         .IsRequired()
@@ -673,8 +708,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("DeliveredAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("EventType")
                         .HasColumnType("integer");
@@ -688,8 +723,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<string>("RecipientEmail")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("RecipientUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("RecipientUserId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
@@ -708,8 +743,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("WorkflowStepId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("WorkflowStepId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -722,9 +757,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.PushDeviceRegistration", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DeviceToken")
                         .IsRequired()
@@ -744,8 +781,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("RegisteredAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -757,9 +794,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.RepositoryDocument", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ApprovalTrailJson")
                         .IsRequired()
@@ -783,14 +822,14 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("FinalizedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("FinalizedByUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("FinalizedByUserId")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsImmutable")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("SourceDocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("SourceDocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Subject")
                         .IsRequired()
@@ -814,40 +853,118 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.RoleMapping", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("DepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
 
-                    b.Property<int>("Role")
+                    b.Property<int>("RoleId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("UserId", "Role", "DepartmentId")
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("UserId", "RoleId", "DepartmentId")
                         .IsUnique();
 
                     b.ToTable("RoleMappings");
                 });
 
+            modelBuilder.Entity("WDAS.Domain.Entities.SecurityRole", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("SecurityRoles", (string)null);
+                });
+
+            modelBuilder.Entity("WDAS.Domain.Entities.SecurityRolePermission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PermissionKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId", "PermissionKey")
+                        .IsUnique();
+
+                    b.ToTable("SecurityRolePermissions", (string)null);
+                });
+
             modelBuilder.Entity("WDAS.Domain.Entities.User", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("AdDisabledAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -859,8 +976,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -881,8 +998,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("LastSyncedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("ManagerUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("ManagerUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("NotificationPreferencesJson")
                         .HasColumnType("text");
@@ -929,15 +1046,17 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.Workflow", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DepartmentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -967,18 +1086,20 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.WorkflowStep", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("ActivatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("ApproverGroupId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("ApproverGroupId")
+                        .HasColumnType("integer");
 
-                    b.Property<Guid?>("ApproverUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("ApproverUserId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -986,8 +1107,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("GroupName")
                         .HasColumnType("text");
@@ -1013,8 +1134,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("WorkflowVersionId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowVersionId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -1030,9 +1151,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.WorkflowStepAction", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("ActionAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1040,8 +1163,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<int>("ActionType")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ActorUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Comment")
                         .HasColumnType("text");
@@ -1049,14 +1172,14 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("OnBehalfOfUserId")
-                        .HasColumnType("uuid");
+                    b.Property<int?>("OnBehalfOfUserId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("WorkflowStepId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowStepId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -1069,9 +1192,11 @@ namespace WDAS.Infrastructure.Migrations
 
             modelBuilder.Entity("WDAS.Domain.Entities.WorkflowVersion", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("ActivatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1109,8 +1234,8 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<int>("VersionNumber")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("WorkflowId")
-                        .HasColumnType("uuid");
+                    b.Property<int>("WorkflowId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -1334,7 +1459,14 @@ namespace WDAS.Infrastructure.Migrations
                 {
                     b.HasOne("WDAS.Domain.Entities.Department", "Department")
                         .WithMany()
-                        .HasForeignKey("DepartmentId");
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("WDAS.Domain.Entities.SecurityRole", "Role")
+                        .WithMany("RoleMappings")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("WDAS.Domain.Entities.User", "User")
                         .WithMany("RoleMappings")
@@ -1344,7 +1476,20 @@ namespace WDAS.Infrastructure.Migrations
 
                     b.Navigation("Department");
 
+                    b.Navigation("Role");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WDAS.Domain.Entities.SecurityRolePermission", b =>
+                {
+                    b.HasOne("WDAS.Domain.Entities.SecurityRole", "Role")
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("WDAS.Domain.Entities.User", b =>
@@ -1453,6 +1598,13 @@ namespace WDAS.Infrastructure.Migrations
                     b.Navigation("Recipients");
 
                     b.Navigation("WorkflowSteps");
+                });
+
+            modelBuilder.Entity("WDAS.Domain.Entities.SecurityRole", b =>
+                {
+                    b.Navigation("Permissions");
+
+                    b.Navigation("RoleMappings");
                 });
 
             modelBuilder.Entity("WDAS.Domain.Entities.User", b =>

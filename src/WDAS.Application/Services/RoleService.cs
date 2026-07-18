@@ -40,7 +40,7 @@ public class RoleService
             .OrderByDescending(r => r.IsSystem)
             .ThenBy(r => r.Name)
             .Select(r => new RoleSummaryDto(
-                r.Id,
+                IdParsing.ToApi(r.Id),
                 r.Name,
                 r.Code,
                 r.IsSystem,
@@ -49,7 +49,7 @@ public class RoleService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<RoleDetailDto> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<RoleDetailDto> GetAsync(int id, CancellationToken cancellationToken = default)
     {
         EnsureCanManageRoles();
         var role = await _db.SecurityRoles
@@ -111,7 +111,7 @@ public class RoleService
         return MapDetail(role);
     }
 
-    public async Task<RoleDetailDto> UpdateAsync(Guid id, UpdateSecurityRoleRequest request, CancellationToken cancellationToken = default)
+    public async Task<RoleDetailDto> UpdateAsync(int id, UpdateSecurityRoleRequest request, CancellationToken cancellationToken = default)
     {
         EnsureCanManageRoles();
 
@@ -163,7 +163,7 @@ public class RoleService
         return MapDetail(role);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         EnsureCanManageRoles();
 
@@ -244,7 +244,7 @@ public class RoleService
 
     private static RoleDetailDto MapDetail(SecurityRole role) =>
         new(
-            role.Id,
+            IdParsing.ToApi(role.Id),
             role.Name,
             role.Code,
             role.Description,

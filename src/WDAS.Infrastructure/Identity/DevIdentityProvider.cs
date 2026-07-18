@@ -9,7 +9,6 @@ public class DevIdentityProvider : IIdentityProvider
     private static readonly IReadOnlyList<DevUser> Users =
     [
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111101"),
             "ad-superadmin",
             "superadmin",
             "SuperAdmin123!",
@@ -20,7 +19,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-it",
             ApplicationRole.SuperAdmin),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111100"),
             "ad-super",
             "super.admin",
             "Super123!",
@@ -31,7 +29,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-it",
             ApplicationRole.SuperAdmin),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111102"),
             "ad-deptadmin",
             "finance.admin",
             "Finance123!",
@@ -42,7 +39,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-fin",
             ApplicationRole.DepartmentAdmin),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111103"),
             "ad-owner",
             "maker.owner",
             "Owner123!",
@@ -53,7 +49,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-fin",
             ApplicationRole.MakerOwner),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111104"),
             "ad-approver1",
             "approver.one",
             "Approver123!",
@@ -64,7 +59,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-fin",
             ApplicationRole.Approver),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111105"),
             "ad-approver2",
             "approver.two",
             "Approver123!",
@@ -75,7 +69,6 @@ public class DevIdentityProvider : IIdentityProvider
             "ad-fin",
             ApplicationRole.Approver),
         new(
-            Guid.Parse("11111111-1111-1111-1111-111111111106"),
             "ad-auditor",
             "auditor.user",
             "Auditor123!",
@@ -105,11 +98,11 @@ public class DevIdentityProvider : IIdentityProvider
         }
 
         return Task.FromResult<AuthenticatedUser?>(new AuthenticatedUser(
-            user.UserId,
+            0,
             user.AdObjectId,
             user.DisplayName,
             user.Email,
-            user.DepartmentId,
+            0,
             [ToRoleCode(user.Role)]));
     }
 
@@ -144,8 +137,10 @@ public class DevIdentityProvider : IIdentityProvider
 
     internal static IReadOnlyList<DevUser> GetSeedUsers() => Users;
 
+    internal static DevUser? FindSeedUser(string userPrincipalName) =>
+        Users.FirstOrDefault(u => u.UserPrincipalName.Equals(userPrincipalName, StringComparison.OrdinalIgnoreCase));
+
     internal record DevUser(
-        Guid UserId,
         string AdObjectId,
         string UserPrincipalName,
         string Password,
@@ -156,6 +151,6 @@ public class DevIdentityProvider : IIdentityProvider
         string DepartmentAdObjectId,
         ApplicationRole Role)
     {
-        public Guid DepartmentId { get; set; }
+        public int DepartmentId { get; set; }
     }
 }

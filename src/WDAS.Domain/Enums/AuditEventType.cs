@@ -18,5 +18,6 @@ public enum AuditEventType
     Search = 14,
     AttachmentUpload = 15,
     Delegation = 16,
-    ExternalAccess = 17
+    ExternalAccess = 17,
+    Logout = 18
 }

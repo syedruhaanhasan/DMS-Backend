@@ -5,11 +5,11 @@ namespace WDAS.Application.Abstractions;
 public record AuditWriteRequest(
     AuditEventType EventType,
     string Action,
-    Guid? DocumentId = null,
+    int? DocumentId = null,
     string? EntityType = null,
     string? EntityId = null,
     string? DetailsJson = null,
-    Guid? ActorUserId = null,
+    int? ActorUserId = null,
     string? ActorDisplayName = null,
     string? ActorEmail = null);
 
@@ -20,10 +20,10 @@ public interface IAuditWriter
 
 public interface IPushNotificationSender
 {
-    Task SendAsync(Guid userId, string title, string body, CancellationToken cancellationToken = default);
+    Task SendAsync(int userId, string title, string body, CancellationToken cancellationToken = default);
 }
 
 public interface IDocumentSearchIndexer
 {
-    Task IndexDocumentAsync(Guid documentId, CancellationToken cancellationToken = default);
+    Task IndexDocumentAsync(int documentId, CancellationToken cancellationToken = default);
 }

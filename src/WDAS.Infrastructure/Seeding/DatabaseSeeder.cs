@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using WDAS.Domain.Entities;
@@ -15,23 +16,34 @@ public static class DatabaseSeeder
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WdasDbContext>();
+        var configuration = scope.ServiceProvider.GetService<IConfiguration>();
 
         try
         {
             await db.Database.MigrateAsync();
         }
-        catch
+        catch (Exception ex) when (!db.Database.IsNpgsql())
         {
+            // Non-PostgreSQL providers (e.g. SQLite in tests) may fall back to EnsureCreated.
             await db.Database.EnsureCreatedAsync();
+            _ = ex;
         }
 
-        await EnsureWorkflowVersionColumnsAsync(db);
-        await EnsureDocumentRevisionColumnAsync(db);
-        await EnsureDocumentTypesTableAsync(db);
-        await EnsureDocumentTypeColumnsAsync(db);
+        // InMemory (integration tests): schema comes from EnsureCreated; skip relational DDL patches.
+        if (db.Database.IsRelational())
+        {
+            await EnsureWorkflowVersionColumnsAsync(db);
+            await EnsureDocumentRevisionColumnAsync(db);
+            await EnsureDocumentTypesTableAsync(db);
+            await EnsureDocumentTypeColumnsAsync(db);
+            await EnsureActiveDirectorySettingsTableAsync(db);
+            await EnsureRevokedTokensTableAsync(db);
+        }
+
         await SecurityRolesBootstrap.EnsureSchemaAndSeedAsync(db);
         await EnsureActiveWorkflowVersionsAsync(db);
         await EnsureDocumentTypesAsync(db);
+        await EnsureActiveDirectorySettingsAsync(db, configuration);
 
         if (await db.Users.AnyAsync())
         {
@@ -60,7 +72,6 @@ public static class DatabaseSeeder
 
             var user = new User
             {
-                Id = devUser.UserId,
                 AdObjectId = devUser.AdObjectId,
                 UserPrincipalName = devUser.UserPrincipalName,
                 DisplayName = devUser.DisplayName,
@@ -73,10 +84,12 @@ public static class DatabaseSeeder
             };
 
             db.Users.Add(user);
+            await db.SaveChangesAsync();
+
             db.RoleMappings.Add(new RoleMapping
             {
                 UserId = user.Id,
-                RoleId = SecurityRolesBootstrap.RoleIdForLegacy(devUser.Role),
+                RoleId = await SecurityRolesBootstrap.RoleIdForLegacyAsync(db, devUser.Role),
                 DepartmentId = devUser.Role == ApplicationRole.SuperAdmin ? null : devUser.DepartmentId,
                 CreatedAtUtc = now
             });
@@ -87,12 +100,12 @@ public static class DatabaseSeeder
 
     private static async Task EnsureDevUserRoleAsync(
         WdasDbContext db,
-        Guid userId,
+        int userId,
         ApplicationRole role,
-        Guid departmentId,
+        int departmentId,
         DateTime now)
     {
-        var roleId = SecurityRolesBootstrap.RoleIdForLegacy(role);
+        var roleId = await SecurityRolesBootstrap.RoleIdForLegacyAsync(db, role);
         var hasRole = await db.RoleMappings.AnyAsync(r => r.UserId == userId && r.RoleId == roleId);
         if (hasRole)
         {
@@ -120,7 +133,6 @@ public static class DatabaseSeeder
 
             var user = new User
             {
-                Id = devUser.UserId,
                 AdObjectId = devUser.AdObjectId,
                 UserPrincipalName = devUser.UserPrincipalName,
                 DisplayName = devUser.DisplayName,
@@ -133,18 +145,26 @@ public static class DatabaseSeeder
             };
 
             db.Users.Add(user);
+            await db.SaveChangesAsync();
+
             db.RoleMappings.Add(new RoleMapping
             {
                 UserId = user.Id,
-                RoleId = SecurityRolesBootstrap.RoleIdForLegacy(devUser.Role),
+                RoleId = await SecurityRolesBootstrap.RoleIdForLegacyAsync(db, devUser.Role),
                 DepartmentId = devUser.Role == ApplicationRole.SuperAdmin ? null : devUser.DepartmentId,
                 CreatedAtUtc = now
             });
         }
 
+        await db.SaveChangesAsync();
+
+        var seededUsers = await db.Users
+            .Where(u => u.UserPrincipalName == "approver.one" || u.UserPrincipalName == "approver.two")
+            .ToDictionaryAsync(u => u.UserPrincipalName, StringComparer.OrdinalIgnoreCase);
+        var approver1UserId = seededUsers["approver.one"].Id;
+        var approver2UserId = seededUsers["approver.two"].Id;
+
         var financeDept = departmentMap["ad-fin"];
-        var approver1 = DevIdentityProvider.GetSeedUsers().First(u => u.UserPrincipalName == "approver.one");
-        var approver2 = DevIdentityProvider.GetSeedUsers().First(u => u.UserPrincipalName == "approver.two");
 
         var workflow = new Workflow
         {
@@ -178,7 +198,7 @@ public static class DatabaseSeeder
             CreatedAtUtc = now,
             Members =
             [
-                new ApproverGroupMember { UserId = approver1.UserId, CreatedAtUtc = now }
+                new ApproverGroupMember { UserId = approver1UserId, CreatedAtUtc = now }
             ]
         };
 
@@ -191,7 +211,7 @@ public static class DatabaseSeeder
             CreatedAtUtc = now,
             Members =
             [
-                new ApproverGroupMember { UserId = approver2.UserId, CreatedAtUtc = now }
+                new ApproverGroupMember { UserId = approver2UserId, CreatedAtUtc = now }
             ]
         };
 
@@ -228,7 +248,7 @@ public static class DatabaseSeeder
                     SequenceOrder = 1,
                     MinAmount = 0m,
                     MaxAmount = 10000m,
-                    ApproverUserIdsJson = JsonSerializer.Serialize(new[] { approver1.UserId }),
+                    ApproverUserIdsJson = JsonSerializer.Serialize(new[] { approver1UserId }),
                     CreatedAtUtc = now
                 },
                 new ApprovalMatrixTier
@@ -236,7 +256,7 @@ public static class DatabaseSeeder
                     SequenceOrder = 2,
                     MinAmount = 10000.01m,
                     MaxAmount = null,
-                    ApproverUserIdsJson = JsonSerializer.Serialize(new[] { approver1.UserId, approver2.UserId }),
+                    ApproverUserIdsJson = JsonSerializer.Serialize(new[] { approver1UserId, approver2UserId }),
                     CreatedAtUtc = now
                 }
             ]
@@ -320,7 +340,7 @@ public static class DatabaseSeeder
     {
         const string sql = """
             CREATE TABLE IF NOT EXISTS "DocumentTypeDefinitions" (
-                "Id" uuid NOT NULL,
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY,
                 "Name" character varying(256) NOT NULL,
                 "Code" character varying(64) NOT NULL,
                 "Description" character varying(1000),
@@ -337,21 +357,13 @@ public static class DatabaseSeeder
         try
         {
             await db.Database.ExecuteSqlRawAsync(sql);
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-                SELECT '20260709121000_AddDocumentTypeDefinitions', '10.0.0'
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM "__EFMigrationsHistory"
-                    WHERE "MigrationId" = '20260709121000_AddDocumentTypeDefinitions'
-                );
-                """);
         }
         catch
         {
             // SQLite / alternate providers use compatible DDL without quoted identifiers.
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS DocumentTypeDefinitions (
-                    Id TEXT NOT NULL PRIMARY KEY,
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
                     Name TEXT NOT NULL,
                     Code TEXT NOT NULL,
                     Description TEXT,
@@ -364,6 +376,106 @@ public static class DatabaseSeeder
                     ON DocumentTypeDefinitions (Code);
                 """);
         }
+    }
+
+    private static async Task EnsureActiveDirectorySettingsTableAsync(WdasDbContext db)
+    {
+        const string sql = """
+            CREATE TABLE IF NOT EXISTS "ActiveDirectorySettings" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY,
+                "Enabled" boolean NOT NULL,
+                "DomainName" character varying(256) NOT NULL,
+                "Port" integer NOT NULL,
+                "UseSsl" boolean NOT NULL,
+                "CreatedAtUtc" timestamp with time zone NOT NULL,
+                "UpdatedAtUtc" timestamp with time zone,
+                CONSTRAINT "PK_ActiveDirectorySettings" PRIMARY KEY ("Id")
+            );
+            """;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql);
+        }
+        catch
+        {
+            // SQLite / alternate providers use compatible DDL without quoted identifiers.
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS ActiveDirectorySettings (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Enabled INTEGER NOT NULL,
+                    DomainName TEXT NOT NULL,
+                    Port INTEGER NOT NULL,
+                    UseSsl INTEGER NOT NULL,
+                    CreatedAtUtc TEXT NOT NULL,
+                    UpdatedAtUtc TEXT
+                );
+                """);
+        }
+    }
+
+    private static async Task EnsureRevokedTokensTableAsync(WdasDbContext db)
+    {
+        const string sql = """
+            CREATE TABLE IF NOT EXISTS "RevokedTokens" (
+                "Id" integer GENERATED BY DEFAULT AS IDENTITY,
+                "Jti" character varying(64) NOT NULL,
+                "ExpiresAtUtc" timestamp with time zone NOT NULL,
+                "CreatedAtUtc" timestamp with time zone NOT NULL,
+                "UpdatedAtUtc" timestamp with time zone,
+                CONSTRAINT "PK_RevokedTokens" PRIMARY KEY ("Id")
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_RevokedTokens_Jti" ON "RevokedTokens" ("Jti");
+            """;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql);
+        }
+        catch
+        {
+            // SQLite / alternate providers use compatible DDL without quoted identifiers.
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS RevokedTokens (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Jti TEXT NOT NULL,
+                    ExpiresAtUtc TEXT NOT NULL,
+                    CreatedAtUtc TEXT NOT NULL,
+                    UpdatedAtUtc TEXT
+                );
+                """);
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_RevokedTokens_Jti ON RevokedTokens (Jti);");
+        }
+    }
+
+    /// <summary>
+    /// Seeds the single AD settings row on first run, carrying over any existing
+    /// values from the legacy "Ldap" appsettings section so nothing is lost.
+    /// </summary>
+    private static async Task EnsureActiveDirectorySettingsAsync(WdasDbContext db, IConfiguration? configuration)
+    {
+        if (await db.ActiveDirectorySettings.AnyAsync())
+        {
+            return;
+        }
+
+        var ldap = configuration?.GetSection("Ldap");
+        var enabled = ldap?.GetValue("Enabled", false) ?? false;
+        var domainName = ldap?.GetValue<string>("Host") ?? string.Empty;
+        var port = ldap?.GetValue("Port", 389) ?? 389;
+        var useSsl = ldap?.GetValue("UseSsl", false) ?? false;
+
+        db.ActiveDirectorySettings.Add(new ActiveDirectorySetting
+        {
+            Enabled = enabled,
+            DomainName = domainName,
+            Port = port is < 1 or > 65535 ? 389 : port,
+            UseSsl = useSsl,
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureDocumentTypeColumnsAsync(WdasDbContext db)

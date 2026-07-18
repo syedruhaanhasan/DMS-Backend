@@ -23,9 +23,9 @@ public class RolesController : ControllerBase
         return Ok(await _roleService.ListAsync(cancellationToken));
     }
 
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id:int}")]
     [Authorize(Policy = "perm:config.roles")]
-    public async Task<ActionResult<RoleDetailDto>> Get(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<RoleDetailDto>> Get(int id, CancellationToken cancellationToken)
     {
         return Ok(await _roleService.GetAsync(id, cancellationToken));
     }
@@ -38,16 +38,16 @@ public class RolesController : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = role.Id }, role);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id:int}")]
     [Authorize(Policy = "perm:config.roles.make")]
-    public async Task<ActionResult<RoleDetailDto>> Update(Guid id, [FromBody] UpdateSecurityRoleRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<RoleDetailDto>> Update(int id, [FromBody] UpdateSecurityRoleRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _roleService.UpdateAsync(id, request, cancellationToken));
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id:int}")]
     [Authorize(Policy = "perm:config.roles.check")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _roleService.DeleteAsync(id, cancellationToken);
         return NoContent();

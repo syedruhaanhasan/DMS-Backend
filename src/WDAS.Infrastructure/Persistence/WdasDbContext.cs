@@ -33,6 +33,8 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     public DbSet<DocumentSearchIndex> DocumentSearchIndexes => Set<DocumentSearchIndex>();
     public DbSet<PushDeviceRegistration> PushDeviceRegistrations => Set<PushDeviceRegistration>();
     public DbSet<DocumentTypeDefinition> DocumentTypeDefinitions => Set<DocumentTypeDefinition>();
+    public DbSet<ActiveDirectorySetting> ActiveDirectorySettings => Set<ActiveDirectorySetting>();
+    public DbSet<RevokedToken> RevokedTokens => Set<RevokedToken>();
 
     IQueryable<Department> IApplicationDbContext.Departments => Departments;
     IQueryable<User> IApplicationDbContext.Users => Users;
@@ -56,12 +58,14 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     IQueryable<DocumentSearchIndex> IApplicationDbContext.DocumentSearchIndexes => DocumentSearchIndexes;
     IQueryable<PushDeviceRegistration> IApplicationDbContext.PushDeviceRegistrations => PushDeviceRegistrations;
     IQueryable<DocumentTypeDefinition> IApplicationDbContext.DocumentTypeDefinitions => DocumentTypeDefinitions;
+    IQueryable<ActiveDirectorySetting> IApplicationDbContext.ActiveDirectorySettings => ActiveDirectorySettings;
+    IQueryable<RevokedToken> IApplicationDbContext.RevokedTokens => RevokedTokens;
 
     void IApplicationDbContext.Add<T>(T entity) => Set<T>().Add(entity);
 
     void IApplicationDbContext.RemoveRange<T>(IEnumerable<T> entities) => Set<T>().RemoveRange(entities);
 
-    Task<T?> IApplicationDbContext.FindAsync<T>(Guid id, CancellationToken cancellationToken) where T : class =>
+    Task<T?> IApplicationDbContext.FindAsync<T>(int id, CancellationToken cancellationToken) where T : class =>
         Set<T>().FindAsync([id], cancellationToken).AsTask();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -27,7 +27,7 @@ public class ExpoPushNotificationSender : IPushNotificationSender
         _http = httpClientFactory.CreateClient("ExpoPush");
     }
 
-    public async Task SendAsync(Guid userId, string title, string body, CancellationToken cancellationToken = default)
+    public async Task SendAsync(int userId, string title, string body, CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled)
         {

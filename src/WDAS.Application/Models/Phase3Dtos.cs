@@ -6,9 +6,9 @@ public record AuditLogEntryDto(
     long SequenceNumber,
     string EventType,
     string Action,
-    Guid? ActorUserId,
+    string? ActorUserId,
     string? ActorDisplayName,
-    Guid? DocumentId,
+    string? DocumentId,
     string? EntityType,
     string? EntityId,
     string? DetailsJson,
@@ -17,8 +17,8 @@ public record AuditLogEntryDto(
     string EntryHash);
 
 public record AuditExportRequest(
-    Guid? DocumentId,
-    Guid? DepartmentId,
+    string? DocumentId,
+    string? DepartmentId,
     DateTime? FromUtc,
     DateTime? ToUtc);
 
@@ -30,8 +30,8 @@ public record AuditExportResult(
 public record SearchRequest(
     string? Query,
     string? ArchiveDocumentId,
-    Guid? OwnerUserId,
-    Guid? ApproverUserId,
+    string? OwnerUserId,
+    string? ApproverUserId,
     DocumentStatus? Status,
     decimal? MinAmount,
     decimal? MaxAmount,
@@ -41,7 +41,7 @@ public record SearchRequest(
     int Take = 25);
 
 public record SearchResultItemDto(
-    Guid DocumentId,
+    string DocumentId,
     long RecordNumber,
     string? ArchiveDocumentId,
     string Subject,
@@ -56,7 +56,7 @@ public record SearchResultDto(
     IReadOnlyCollection<SearchResultItemDto> Items);
 
 public record ApprovalTimeReportDto(
-    Guid DepartmentId,
+    string DepartmentId,
     string DepartmentName,
     string WorkflowName,
     double AverageEndToEndHours,
@@ -65,7 +65,7 @@ public record ApprovalTimeReportDto(
 
 public record BottleneckReportDto(
     string ApproverDisplayName,
-    Guid ApproverUserId,
+    string ApproverUserId,
     int StepCount,
     double AverageDelayHours,
     int OverdueCount);
@@ -96,8 +96,8 @@ public record OfflineWorkflowActionRequest(
 public record ConflictResponseDto(
     string Code,
     string Message,
-    Guid DocumentId,
-    Guid StepId,
+    string DocumentId,
+    string StepId,
     string CurrentStepStatus,
     DateTime ServerTimestampUtc);
 

@@ -1,19 +1,19 @@
 namespace WDAS.Application.Models;
 
 public record NotificationDto(
-    Guid Id,
+    string Id,
     string EventType,
     string Channel,
     string Subject,
     string Body,
-    Guid? DocumentId,
+    string? DocumentId,
     DateTime CreatedAtUtc,
     DateTime? ReadAtUtc);
 
 public record ExternalApproverListItemDto(
-    Guid Id,
-    Guid WorkflowStepId,
-    Guid DocumentId,
+    string Id,
+    string WorkflowStepId,
+    string DocumentId,
     string DocumentSubject,
     string ApproverName,
     string ApproverEmail,

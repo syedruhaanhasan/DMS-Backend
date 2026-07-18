@@ -1,9 +1,9 @@
 namespace WDAS.Application.Models;
 
-public record RoleSummaryDto(Guid Id, string Name, string Code, bool IsSystem, bool IsActive, int PermissionCount);
+public record RoleSummaryDto(string Id, string Name, string Code, bool IsSystem, bool IsActive, int PermissionCount);
 
 public record RoleDetailDto(
-    Guid Id,
+    string Id,
     string Name,
     string Code,
     string? Description,

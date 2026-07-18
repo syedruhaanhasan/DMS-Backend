@@ -5,9 +5,9 @@ namespace WDAS.Domain.Entities;
 
 public class Attachment : Entity
 {
-    public Guid DocumentId { get; set; }
-    public Guid UploadedByUserId { get; set; }
-    public Guid? WorkflowStepActionId { get; set; }
+    public int DocumentId { get; set; }
+    public int UploadedByUserId { get; set; }
+    public int? WorkflowStepActionId { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string? LogicalName { get; set; }
     public string ContentType { get; set; } = string.Empty;

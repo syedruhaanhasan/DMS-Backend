@@ -10,8 +10,8 @@ public class User : Entity
     public string Email { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public string Title { get; set; } = string.Empty;
-    public Guid DepartmentId { get; set; }
-    public Guid? ManagerUserId { get; set; }
+    public int DepartmentId { get; set; }
+    public int? ManagerUserId { get; set; }
     public bool IsEnabledInAd { get; set; } = true;
     public bool IsDisabledInApp { get; set; }
     public DateTime? AdDisabledAtUtc { get; set; }

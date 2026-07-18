@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
@@ -28,7 +29,7 @@ public class CancellationService
         _notifications = notifications;
     }
 
-    public async Task<DocumentDto> CancelAsync(Guid documentId, CancelDocumentRequest request, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> CancelAsync(int documentId, CancelDocumentRequest request, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Owner)
@@ -100,14 +101,14 @@ public class CancellationService
 
     private static DocumentDto MapDocument(Document document) =>
         new(
-            document.Id,
+            IdParsing.ToApi(document.Id),
             document.RecordNumber,
             document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
-            document.OwnerUserId,
+            IdParsing.ToApi(document.OwnerUserId),
             document.Owner.DisplayName,
-            document.DepartmentId,
-            document.WorkflowId,
-            document.WorkflowVersionId,
+            IdParsing.ToApi(document.DepartmentId),
+            IdParsing.ToApi(document.WorkflowId),
+            document.WorkflowVersionId is int wv ? IdParsing.ToApi(wv) : null,
             document.ToRecipients,
             document.FromDisplay,
             document.Subject,
@@ -120,22 +121,22 @@ public class CancellationService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
-            ParseAdHocIds(document.AdHocApproverUserIdsJson),
-            document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
+            ParseAdHocIds(document.AdHocApproverUserIdsJson)?.Select(IdParsing.ToApi).ToList(),
+            document.Recipients.Select(r => new DocumentRecipientDto(IdParsing.ToApi(r.Id), r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps.OrderBy(s => s.StepOrder).Select(s => new WorkflowStepDto(
-                s.Id, s.StepOrder, s.ApproverUserId, s.ApproverUser?.DisplayName, s.GroupName,
+                IdParsing.ToApi(s.Id), s.StepOrder, s.ApproverUserId is int au ? IdParsing.ToApi(au) : null, s.ApproverUser?.DisplayName, s.GroupName,
                 s.Status, s.ActivatedAtUtc, s.CompletedAtUtc, s.SlaDueAtUtc, s.IsSlaBreached,
                 s.Actions.OrderBy(a => a.ActionAtUtc).Select(a => new WorkflowStepActionDto(
-                    a.Id, a.ActorUserId, a.Actor?.DisplayName ?? "Unknown", a.ActionType, a.Comment, a.ActionAtUtc)).ToList())).ToList());
+                    IdParsing.ToApi(a.Id), IdParsing.ToApi(a.ActorUserId), a.Actor?.DisplayName ?? "Unknown", a.ActionType, a.Comment, a.ActionAtUtc)).ToList())).ToList());
 
-    private static List<Guid>? ParseAdHocIds(string? json)
+    private static List<int>? ParseAdHocIds(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
             return null;
         }
 
-        return JsonSerializer.Deserialize<List<Guid>>(json);
+        return JsonSerializer.Deserialize<List<int>>(json);
     }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
@@ -178,7 +179,7 @@ public class FinalizationService
         _pdfGenerator = pdfGenerator;
     }
 
-    public async Task<RepositoryDocumentDto> FinalizeAsync(Guid documentId, FinalizeDocumentRequest request, CancellationToken cancellationToken = default)
+    public async Task<RepositoryDocumentDto> FinalizeAsync(int documentId, FinalizeDocumentRequest request, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Owner)
@@ -306,9 +307,9 @@ public class FinalizationService
 
         var finalizedBy = await _db.Users.FirstAsync(u => u.Id == _currentUser.UserId, cancellationToken);
         return new RepositoryDocumentDto(
-            repository.Id,
+            IdParsing.ToApi(repository.Id),
             repository.ArchiveDocumentId,
-            repository.SourceDocumentId,
+            IdParsing.ToApi(repository.SourceDocumentId),
             repository.Subject,
             repository.BodyHtmlSnapshot,
             repository.ApprovalTrailJson,
@@ -336,9 +337,9 @@ public class FinalizationService
         }
 
         return new RepositoryDocumentDto(
-            repository.Id,
+            IdParsing.ToApi(repository.Id),
             repository.ArchiveDocumentId,
-            repository.SourceDocumentId,
+            IdParsing.ToApi(repository.SourceDocumentId),
             repository.Subject,
             repository.BodyHtmlSnapshot,
             repository.ApprovalTrailJson,
@@ -414,7 +415,7 @@ public class FinalizationService
         }
     }
 
-    private async Task<string> GenerateArchiveIdAsync(Guid departmentId, CancellationToken cancellationToken)
+    private async Task<string> GenerateArchiveIdAsync(int departmentId, CancellationToken cancellationToken)
     {
         var deptCode = await _db.Departments.Where(d => d.Id == departmentId).Select(d => d.Code).FirstAsync(cancellationToken);
         var year = _clock.UtcNow.Year;

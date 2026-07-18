@@ -4,8 +4,8 @@ namespace WDAS.Domain.Entities;
 
 public class Delegation : Entity
 {
-    public Guid ApproverUserId { get; set; }
-    public Guid DelegateUserId { get; set; }
+    public int ApproverUserId { get; set; }
+    public int DelegateUserId { get; set; }
     public DateTime StartsAtUtc { get; set; }
     public DateTime EndsAtUtc { get; set; }
     public bool IsActive { get; set; } = true;

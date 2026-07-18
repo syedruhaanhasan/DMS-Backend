@@ -6,27 +6,31 @@ public record LoginRequest(string Username, string Password);
 
 public record LoginResponse(string AccessToken, DateTime ExpiresAtUtc, UserSummaryDto User);
 
-public record AssignedRoleDto(Guid Id, string Name, string Code);
+/// <summary>A freshly issued access token together with its id and true expiry.</summary>
+public record AccessTokenResult(string Token, DateTime ExpiresAtUtc, string Jti);
+
+public record AssignedRoleDto(string Id, string Name, string Code);
 
 public record UserSummaryDto(
-    Guid Id,
+    string Id,
     string AdObjectId,
     string UserPrincipalName,
     string DisplayName,
     string Email,
+    string? PhoneNumber,
     string Title,
-    Guid DepartmentId,
+    string DepartmentId,
     string DepartmentName,
     IReadOnlyCollection<AssignedRoleDto> Roles,
     IReadOnlyCollection<string> Permissions,
     bool IsActive);
 
-public record DepartmentDto(Guid Id, string Name, string Code, Guid? ParentDepartmentId, bool IsActive);
+public record DepartmentDto(string Id, string Name, string Code, string? ParentDepartmentId, bool IsActive);
 
 public record CreateDepartmentRequest(
     string Name,
     string Code,
-    Guid? ParentDepartmentId);
+    string? ParentDepartmentId);
 
 public record UpdateDepartmentRequest(
     string? Name,
@@ -41,8 +45,8 @@ public record CreateUserRequest(
     string DisplayName,
     string Email,
     string Title,
-    Guid DepartmentId,
-    List<Guid>? RoleIds = null,
+    string DepartmentId,
+    List<string>? RoleIds = null,
     /// <summary>Legacy enum roles — mapped to seeded SecurityRole ids when RoleIds is empty.</summary>
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null,
@@ -50,9 +54,22 @@ public record CreateUserRequest(
     string? AdObjectId = null);
 
 public record UpdateUserRoleRequest(
-    List<Guid>? RoleIds = null,
+    List<string>? RoleIds = null,
     List<ApplicationRole>? Roles = null,
     ApplicationRole? Role = null);
+
+/// <summary>Admin update of an existing user. Password is intentionally omitted.</summary>
+public record UpdateUserRequest(
+    string UserPrincipalName,
+    string DisplayName,
+    string Email,
+    string? PhoneNumber,
+    string Title,
+    string DepartmentId,
+    List<string>? RoleIds = null,
+    List<ApplicationRole>? Roles = null,
+    ApplicationRole? Role = null,
+    bool? IsActive = null);
 
 public record UserPreferencesDto(
     string? NotificationPreferencesJson,

@@ -1,9 +1,10 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,6 +18,8 @@ namespace WDAS.IntegrationTests;
 
 public class WdasWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private SqliteConnection? _connection;
+
     public static string TestDatabasePath { get; } = Guid.NewGuid().ToString("N");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -29,10 +32,22 @@ public class WdasWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IApplicationDbContext>();
             services.RemoveAll<IUnitOfWork>();
 
-            services.AddDbContext<WdasDbContext>(options => options.UseInMemoryDatabase($"wdas-tests-{TestDatabasePath}"));
+            _connection = new SqliteConnection($"Data Source=wdas-tests-{TestDatabasePath};Mode=Memory;Cache=Shared");
+            _connection.Open();
+            services.AddDbContext<WdasDbContext>(options => options.UseSqlite(_connection));
             services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<WdasDbContext>());
             services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<WdasDbContext>());
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connection?.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }
 
@@ -57,9 +72,10 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
     {
         await ResetDatabaseAsync();
 
-        var ownerToken = await LoginAsync("maker.owner", "Owner123!");
-        var approver1Token = await LoginAsync("approver.one", "Approver123!");
-        var approver2Token = await LoginAsync("approver.two", "Approver123!");
+        var (ownerToken, _) = await LoginAsync("maker.owner", "Owner123!");
+        var (approver1Token, approver1Id) = await LoginAsync("approver.one", "Approver123!");
+        var (approver2Token, approver2Id) = await LoginAsync("approver.two", "Approver123!");
+        var adHocApprovers = new[] { approver1Id, approver2Id };
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
 
@@ -75,7 +91,7 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
             null,
             DocumentPriority.Normal,
             [new DocumentRecipientInput("Finance Leadership", "finance.leadership@wdas.local")],
-            null,
+            adHocApprovers,
             true,
             "submit-key-1");
 
@@ -120,8 +136,10 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
     {
         await ResetDatabaseAsync();
 
-        var ownerToken = await LoginAsync("maker.owner", "Owner123!");
-        var approver1Token = await LoginAsync("approver.one", "Approver123!");
+        var (ownerToken, _) = await LoginAsync("maker.owner", "Owner123!");
+        var (approver1Token, approver1Id) = await LoginAsync("approver.one", "Approver123!");
+        var (_, approver2Id) = await LoginAsync("approver.two", "Approver123!");
+        var adHocApprovers = new[] { approver1Id, approver2Id };
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var workflow = (await _client.GetFromJsonAsync<List<WorkflowDto>>("/api/workflows", _jsonOptions))!
@@ -135,7 +153,7 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
             null,
             DocumentPriority.Normal,
             [],
-            null,
+            adHocApprovers,
             true,
             "return-key-1"));
         createResponse.EnsureSuccessStatusCode();
@@ -158,7 +176,7 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
             null,
             DocumentPriority.Normal,
             [],
-            null,
+            adHocApprovers,
             true,
             "return-key-2"));
         if (!resubmitted.IsSuccessStatusCode)
@@ -179,11 +197,11 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
         await DatabaseSeeder.SeedAsync(scope.ServiceProvider);
     }
 
-    private async Task<string> LoginAsync(string username, string password)
+    private async Task<(string Token, string UserId)> LoginAsync(string username, string password)
     {
         var response = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest(username, password));
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<LoginResponse>(_jsonOptions);
-        return payload!.AccessToken;
+        return (payload!.AccessToken, payload.User.Id);
     }
 }

@@ -12,7 +12,7 @@ public class DevPushNotificationSender : IPushNotificationSender
         _logger = logger;
     }
 
-    public Task SendAsync(Guid userId, string title, string body, CancellationToken cancellationToken = default)
+    public Task SendAsync(int userId, string title, string body, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Push notification to {UserId}: {Title} - {Body}", userId, title, body);
         return Task.CompletedTask;

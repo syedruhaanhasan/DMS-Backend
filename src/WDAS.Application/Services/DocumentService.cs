@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
@@ -35,9 +36,10 @@ public class DocumentService
     public async Task<DocumentDto> CreateDocumentAsync(CreateDocumentRequest request, CancellationToken cancellationToken = default)
     {
         var owner = await GetCurrentUserEntityAsync(cancellationToken);
+        var workflowId = IdParsing.ParseRequired(request.WorkflowId, "Workflow id");
         var workflow = await _db.Workflows
             .Include(w => w.Versions)
-            .FirstOrDefaultAsync(w => w.Id == request.WorkflowId, cancellationToken)
+            .FirstOrDefaultAsync(w => w.Id == workflowId, cancellationToken)
             ?? throw new DomainException("Workflow not found.");
 
         if (!workflow.IsActive)
@@ -52,7 +54,8 @@ public class DocumentService
             ?? throw new DomainException(
                 $"Workflow '{workflow.Name}' has no published version. Open Configuration → Workflows and publish the workflow before creating documents.");
 
-        ValidateAdHocRequirements(activeVersion, request.AdHocApproverUserIds);
+        var adHocIds = ParseAdHocFromRequest(request.AdHocApproverUserIds);
+        ValidateAdHocRequirements(activeVersion, adHocIds);
 
         var now = _clock.UtcNow;
         var document = new Document
@@ -69,9 +72,9 @@ public class DocumentService
             Priority = request.Priority,
             Status = DocumentStatus.Draft,
             RevisionNumber = 1,
-            AdHocApproverUserIdsJson = request.AdHocApproverUserIds is null
+            AdHocApproverUserIdsJson = adHocIds is null
                 ? null
-                : JsonSerializer.Serialize(request.AdHocApproverUserIds),
+                : JsonSerializer.Serialize(adHocIds),
             CreatedAtUtc = now
         };
 
@@ -79,7 +82,6 @@ public class DocumentService
         {
             document.Recipients.Add(new DocumentRecipient
             {
-                DocumentId = document.Id,
                 RecipientName = recipient.RecipientName,
                 RecipientEmail = recipient.RecipientEmail,
                 CreatedAtUtc = now
@@ -88,18 +90,19 @@ public class DocumentService
 
         _db.Add(document);
 
+        // Persist the document first so identity DocumentId exists before workflow steps are inserted.
+        await SaveAsync(cancellationToken);
+
         if (request.Submit)
         {
             await ApplySubmitAsync(document, request.IdempotencyKey, cancellationToken);
             await SaveAsync(cancellationToken);
-            return await GetDocumentDtoAsync(document.Id, cancellationToken);
         }
 
-        await SaveAsync(cancellationToken);
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
     }
 
-    public async Task<DocumentDto> UpdateDocumentAsync(Guid documentId, UpdateDocumentRequest request, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> UpdateDocumentAsync(int documentId, UpdateDocumentRequest request, CancellationToken cancellationToken = default)
     {
         // Avoid loading recipients when submitting — tracked recipient rows were causing
         // DELETE+UPDATE concurrency conflicts in the same SaveChanges batch.
@@ -139,9 +142,10 @@ public class DocumentService
 
         if (request.AdHocApproverUserIds is not null)
         {
-            document.AdHocApproverUserIdsJson = request.AdHocApproverUserIds.Count == 0
+            var adHocIds = ParseAdHocFromRequest(request.AdHocApproverUserIds) ?? [];
+            document.AdHocApproverUserIdsJson = adHocIds.Count == 0
                 ? null
-                : JsonSerializer.Serialize(request.AdHocApproverUserIds);
+                : JsonSerializer.Serialize(adHocIds);
         }
 
         document.UpdatedAtUtc = _clock.UtcNow;
@@ -178,7 +182,7 @@ public class DocumentService
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
     }
 
-    public async Task<DocumentDto> GetDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> GetDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await LoadDocumentAsync(documentId, cancellationToken);
         EnsureCanView(document);
@@ -189,7 +193,7 @@ public class DocumentService
     /// Owner reopens a rejected document for correction. Bumps revision (v2, v3, …)
     /// and unlocks the body so the same document can be edited and resubmitted.
     /// </summary>
-    public async Task<DocumentDto> ReviseRejectedDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<DocumentDto> ReviseRejectedDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Owner)
@@ -218,7 +222,7 @@ public class DocumentService
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
     }
 
-    public async Task DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task DeleteDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Recipients)
@@ -274,10 +278,10 @@ public class DocumentService
         await SaveAsync(cancellationToken);
     }
 
-    public Task<DocumentDto> SubmitDocumentAsync(Guid documentId, string? idempotencyKey, CancellationToken cancellationToken = default) =>
+    public Task<DocumentDto> SubmitDocumentAsync(int documentId, string? idempotencyKey, CancellationToken cancellationToken = default) =>
         SubmitDocumentInternalAsync(documentId, idempotencyKey, cancellationToken);
 
-    private async Task<DocumentDto> SubmitDocumentInternalAsync(Guid documentId, string? idempotencyKey, CancellationToken cancellationToken)
+    private async Task<DocumentDto> SubmitDocumentInternalAsync(int documentId, string? idempotencyKey, CancellationToken cancellationToken)
     {
         var document = await LoadDocumentForSubmitAsync(documentId, cancellationToken);
         EnsureOwner(document);
@@ -295,14 +299,14 @@ public class DocumentService
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
     }
 
-    public Task RunPostSubmitSideEffectsAsync(Guid documentId, CancellationToken cancellationToken = default) =>
+    public Task RunPostSubmitSideEffectsAsync(int documentId, CancellationToken cancellationToken = default) =>
         FinalizeSubmissionSideEffectsAsync(documentId, cancellationToken);
 
     /// <summary>
     /// Search index + notifications must not block the submit HTTP response.
     /// Email/SMTP failures (e.g. Mailpit down) previously stalled "Submit for approval".
     /// </summary>
-    private async Task FinalizeSubmissionSideEffectsAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task FinalizeSubmissionSideEffectsAsync(int documentId, CancellationToken cancellationToken)
     {
         try
         {
@@ -367,7 +371,7 @@ public class DocumentService
                     await _db.Attachments
                         .Where(a => a.WorkflowStepActionId != null && actionIds.Contains(a.WorkflowStepActionId.Value))
                         .ExecuteUpdateAsync(
-                            setters => setters.SetProperty(a => a.WorkflowStepActionId, (Guid?)null),
+                            setters => setters.SetProperty(a => a.WorkflowStepActionId, (int?)null),
                             cancellationToken);
                 }
 
@@ -403,7 +407,7 @@ public class DocumentService
         {
             var resolved = resolvedSteps[i];
             var activateNow = workflowVersion.ApprovalSequence == ApprovalSequence.Parallel || i == 0;
-            _db.Add(new WorkflowStep
+            document.WorkflowSteps.Add(new WorkflowStep
             {
                 DocumentId = document.Id,
                 WorkflowVersionId = workflowVersion.Id,
@@ -422,7 +426,7 @@ public class DocumentService
         }
     }
 
-    private async Task<Document> LoadDocumentAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task<Document> LoadDocumentAsync(int documentId, CancellationToken cancellationToken)
     {
         return await _db.Documents
             .Include(d => d.Owner)
@@ -436,7 +440,7 @@ public class DocumentService
             ?? throw new DomainException("Document not found.");
     }
 
-    private async Task<Document> LoadDocumentForSubmitAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task<Document> LoadDocumentForSubmitAsync(int documentId, CancellationToken cancellationToken)
     {
         return await _db.Documents
             .Include(d => d.WorkflowSteps)
@@ -445,7 +449,7 @@ public class DocumentService
             ?? throw new DomainException("Document not found.");
     }
 
-    private async Task<DocumentDto> GetDocumentDtoAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task<DocumentDto> GetDocumentDtoAsync(int documentId, CancellationToken cancellationToken)
     {
         var document = await LoadDocumentAsync(documentId, cancellationToken);
         return MapDocument(document);
@@ -495,7 +499,7 @@ public class DocumentService
         throw new DomainException("You are not authorized to view this document.");
     }
 
-    private static void ValidateAdHocRequirements(WorkflowVersion version, IReadOnlyCollection<Guid>? adHocApproverUserIds)
+    private static void ValidateAdHocRequirements(WorkflowVersion version, IReadOnlyCollection<int>? adHocApproverUserIds)
     {
         var needsSelectedApprovers = version.ApprovalMode switch
         {
@@ -511,26 +515,36 @@ public class DocumentService
         }
     }
 
-    private static List<Guid>? ParseAdHocIds(string? json)
+    private static List<int>? ParseAdHocFromRequest(IReadOnlyCollection<string>? values)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        return values.Select(v => IdParsing.ParseRequired(v, "Ad-hoc approver user id")).ToList();
+    }
+
+    private static List<int>? ParseAdHocIds(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
             return null;
         }
 
-        return JsonSerializer.Deserialize<List<Guid>>(json);
+        return JsonSerializer.Deserialize<List<int>>(json);
     }
 
     private static DocumentDto MapDocument(Document document) =>
         new(
-            document.Id,
+            IdParsing.ToApi(document.Id),
             document.RecordNumber,
             document.RevisionNumber < 1 ? 1 : document.RevisionNumber,
-            document.OwnerUserId,
+            IdParsing.ToApi(document.OwnerUserId),
             document.Owner?.DisplayName ?? "Unknown",
-            document.DepartmentId,
-            document.WorkflowId,
-            document.WorkflowVersionId,
+            IdParsing.ToApi(document.DepartmentId),
+            IdParsing.ToApi(document.WorkflowId),
+            document.WorkflowVersionId is int wv ? IdParsing.ToApi(wv) : null,
             document.ToRecipients,
             document.FromDisplay,
             document.Subject,
@@ -543,14 +557,14 @@ public class DocumentService
             document.ArchiveDocumentId,
             document.FinalizedAtUtc,
             document.CancellationReason,
-            ParseAdHocIds(document.AdHocApproverUserIdsJson),
-            document.Recipients.Select(r => new DocumentRecipientDto(r.Id, r.RecipientName, r.RecipientEmail)).ToList(),
+            ParseAdHocIds(document.AdHocApproverUserIdsJson)?.Select(IdParsing.ToApi).ToList(),
+            document.Recipients.Select(r => new DocumentRecipientDto(IdParsing.ToApi(r.Id), r.RecipientName, r.RecipientEmail)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
                 .Select(s => new WorkflowStepDto(
-                    s.Id,
+                    IdParsing.ToApi(s.Id),
                     s.StepOrder,
-                    s.ApproverUserId,
+                    s.ApproverUserId is int au ? IdParsing.ToApi(au) : null,
                     s.ApproverUser?.DisplayName,
                     s.GroupName,
                     s.Status,
@@ -559,15 +573,15 @@ public class DocumentService
                     s.SlaDueAtUtc,
                     s.IsSlaBreached,
                     s.Actions.OrderBy(a => a.ActionAtUtc).Select(a => new WorkflowStepActionDto(
-                        a.Id,
-                        a.ActorUserId,
+                        IdParsing.ToApi(a.Id),
+                        IdParsing.ToApi(a.ActorUserId),
                         a.Actor?.DisplayName ?? "Unknown",
                         a.ActionType,
                         a.Comment,
                         a.ActionAtUtc)).ToList()))
                 .ToList());
 
-    private async Task NotifySubmittedAsync(Guid documentId, CancellationToken cancellationToken)
+    private async Task NotifySubmittedAsync(int documentId, CancellationToken cancellationToken)
     {
         var document = await _db.Documents.AsNoTracking()
             .Where(d => d.Id == documentId)
@@ -590,7 +604,7 @@ public class DocumentService
             return;
         }
 
-        var recipientIds = new List<Guid>();
+        var recipientIds = new List<int>();
         if (activeStep.ApproverUserId.HasValue)
         {
             recipientIds.Add(activeStep.ApproverUserId.Value);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Exceptions;
@@ -28,9 +29,10 @@ public class AuditService
 
         var query = _db.AuditLogEntries.AsNoTracking().AsQueryable();
 
-        if (request.DocumentId.HasValue)
+        var documentId = IdParsing.ParseOptional(request.DocumentId);
+        if (documentId.HasValue)
         {
-            query = query.Where(e => e.DocumentId == request.DocumentId);
+            query = query.Where(e => e.DocumentId == documentId);
         }
 
         if (request.FromUtc.HasValue)
@@ -43,10 +45,11 @@ public class AuditService
             query = query.Where(e => e.CreatedAtUtc <= request.ToUtc);
         }
 
-        if (request.DepartmentId.HasValue)
+        var departmentId = IdParsing.ParseOptional(request.DepartmentId);
+        if (departmentId.HasValue)
         {
             var docIds = _db.Documents
-                .Where(d => d.DepartmentId == request.DepartmentId)
+                .Where(d => d.DepartmentId == departmentId)
                 .Select(d => d.Id);
             query = query.Where(e => e.DocumentId.HasValue && docIds.Contains(e.DocumentId.Value));
         }
@@ -57,7 +60,7 @@ public class AuditService
         await _auditWriter.WriteAsync(new AuditWriteRequest(
             Domain.Enums.AuditEventType.Export,
             "Audit trail exported",
-            request.DocumentId,
+            documentId,
             DetailsJson: System.Text.Json.JsonSerializer.Serialize(new { request.DepartmentId, Count = entries.Count })),
             cancellationToken);
 
@@ -66,9 +69,9 @@ public class AuditService
                 e.SequenceNumber,
                 e.EventType.ToString(),
                 e.Action,
-                e.ActorUserId,
+                e.ActorUserId is int actorId ? IdParsing.ToApi(actorId) : null,
                 e.ActorDisplayName,
-                e.DocumentId,
+                e.DocumentId is int docId ? IdParsing.ToApi(docId) : null,
                 e.EntityType,
                 e.EntityId,
                 e.DetailsJson,

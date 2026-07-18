@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Enums;
@@ -72,7 +73,7 @@ public class DashboardService
             recentlyCompleted.Select(d => MapItem(d, null, false)).ToList());
     }
 
-    public async Task<DepartmentDashboardDto> GetDepartmentDashboardAsync(Guid departmentId, CancellationToken cancellationToken = default)
+    public async Task<DepartmentDashboardDto> GetDepartmentDashboardAsync(int departmentId, CancellationToken cancellationToken = default)
     {
         if (!_currentUser.IsInRole(RoleNames.SuperAdmin) &&
             !_currentUser.IsInRole(RoleNames.DepartmentAdmin))
@@ -97,7 +98,7 @@ public class DashboardService
             .ToListAsync(cancellationToken);
 
         return new DepartmentDashboardDto(
-            department.Id,
+            IdParsing.ToApi(department.Id),
             department.Name,
             documents.Select(d => MapItem(d, d.WorkflowSteps.FirstOrDefault(s => s.Status == WorkflowStepStatus.Active), false)).ToList());
     }
@@ -115,9 +116,9 @@ public class DashboardService
         }
 
         return new DashboardDocumentItemDto(
-            document.Id,
+            IdParsing.ToApi(document.Id),
             document.RecordNumber,
-            document.OwnerUserId,
+            IdParsing.ToApi(document.OwnerUserId),
             document.Subject,
             document.Status.ToString(),
             document.Workflow.Name,
@@ -125,7 +126,7 @@ public class DashboardService
             activeStep?.SlaDueAtUtc,
             activeStep?.IsSlaBreached ?? false,
             classification,
-            activeStep?.Id,
+            activeStep is null ? null : IdParsing.ToApi(activeStep.Id),
             isDelegated);
     }
 }

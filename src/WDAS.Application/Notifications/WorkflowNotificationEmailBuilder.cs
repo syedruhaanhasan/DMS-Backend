@@ -6,7 +6,7 @@ public static class WorkflowNotificationEmailBuilder
         string appBaseUrl,
         string subject,
         string body,
-        Guid? documentId)
+        int? documentId)
     {
         var docUrl = documentId.HasValue
             ? $"{appBaseUrl.TrimEnd('/')}/documents/{documentId.Value}"

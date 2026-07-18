@@ -10,7 +10,7 @@
         "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
         "projectName": "WDAS.Api",
         "projectPath": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
-        "packagesPath": "D:\\nuget-packages-wdas",
+        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
         "outputPath": "D:\\document management\\backend\\src\\WDAS.Api\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
@@ -508,7 +508,7 @@
         "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj",
         "projectName": "WDAS.Application",
         "projectPath": "D:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj",
-        "packagesPath": "D:\\nuget-packages-wdas",
+        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
         "outputPath": "D:\\document management\\backend\\src\\WDAS.Application\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
@@ -858,7 +858,7 @@
         "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
         "projectName": "WDAS.Domain",
         "projectPath": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
-        "packagesPath": "D:\\nuget-packages-wdas",
+        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
         "outputPath": "D:\\document management\\backend\\src\\WDAS.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
@@ -1194,7 +1194,7 @@
         "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj",
         "projectName": "WDAS.Infrastructure",
         "projectPath": "D:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj",
-        "packagesPath": "D:\\nuget-packages-wdas",
+        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
         "outputPath": "D:\\document management\\backend\\src\\WDAS.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
@@ -1581,7 +1581,7 @@
         "projectUniqueName": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\WDAS.IntegrationTests.csproj",
         "projectName": "WDAS.IntegrationTests",
         "projectPath": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\WDAS.IntegrationTests.csproj",
-        "packagesPath": "D:\\nuget-packages-wdas",
+        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
         "outputPath": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [

@@ -4,9 +4,9 @@ namespace WDAS.Domain.Entities;
 
 public class RepositoryDocument : Entity
 {
-    public Guid SourceDocumentId { get; set; }
+    public int SourceDocumentId { get; set; }
     public string ArchiveDocumentId { get; set; } = string.Empty;
-    public Guid FinalizedByUserId { get; set; }
+    public int FinalizedByUserId { get; set; }
     public DateTime FinalizedAtUtc { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string BodyHtmlSnapshot { get; set; } = string.Empty;

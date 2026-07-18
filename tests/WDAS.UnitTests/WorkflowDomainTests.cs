@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
 using WDAS.Domain.Exceptions;
@@ -13,8 +13,8 @@ public class MatrixTierValidatorTests
     {
         var tiers = new List<ApprovalMatrixTier>
         {
-            CreateTier(1, 0, 5000, [Guid.NewGuid()]),
-            CreateTier(2, 4000, 10000, [Guid.NewGuid()])
+            CreateTier(1, 0, 5000, [1]),
+            CreateTier(2, 4000, 10000, [2])
         };
 
         var ex = Assert.Throws<DomainException>(() => MatrixTierValidator.Validate(tiers));
@@ -26,8 +26,8 @@ public class MatrixTierValidatorTests
     {
         var tiers = new List<ApprovalMatrixTier>
         {
-            CreateTier(1, 0, 10000, [Guid.NewGuid()]),
-            CreateTier(2, 20000, null, [Guid.NewGuid()])
+            CreateTier(1, 0, 10000, [1]),
+            CreateTier(2, 20000, null, [2])
         };
 
         var ex = Assert.Throws<DomainException>(() => MatrixTierValidator.Validate(tiers));
@@ -39,8 +39,8 @@ public class MatrixTierValidatorTests
     {
         var tiers = new List<ApprovalMatrixTier>
         {
-            CreateTier(1, 0, 10000, [Guid.NewGuid()]),
-            CreateTier(2, 10001, null, [Guid.NewGuid(), Guid.NewGuid()])
+            CreateTier(1, 0, 10000, [1]),
+            CreateTier(2, 10001, null, [2, 3])
         };
 
         MatrixTierValidator.Validate(tiers);
@@ -51,14 +51,14 @@ public class MatrixTierValidatorTests
     {
         var tiers = new List<ApprovalMatrixTier>
         {
-            CreateTier(1, 0, 10000, [Guid.NewGuid()]),
-            CreateTier(2, 10000.01m, null, [Guid.NewGuid()])
+            CreateTier(1, 0, 10000, [1]),
+            CreateTier(2, 10000.01m, null, [2])
         };
 
         MatrixTierValidator.Validate(tiers);
     }
 
-    private static ApprovalMatrixTier CreateTier(int order, decimal min, decimal? max, Guid[] approvers) =>
+    private static ApprovalMatrixTier CreateTier(int order, decimal min, decimal? max, int[] approvers) =>
         new()
         {
             SequenceOrder = order,
@@ -75,8 +75,8 @@ public class ApprovalChainResolverTests
     [Fact]
     public void Resolve_GroupMode_CreatesOrderedSteps()
     {
-        var approver1 = Guid.NewGuid();
-        var approver2 = Guid.NewGuid();
+        var approver1 = 1;
+        var approver2 = 2;
         var version = new WorkflowVersion
         {
             ApprovalMode = ApprovalMode.Group,
@@ -109,7 +109,7 @@ public class ApprovalChainResolverTests
     [Fact]
     public void Resolve_MatrixMode_MatchesAmountBand()
     {
-        var approver = Guid.NewGuid();
+        var approver = 10;
         var version = new WorkflowVersion
         {
             ApprovalMode = ApprovalMode.Matrix,
@@ -141,8 +141,8 @@ public class ApprovalChainResolverTests
     [Fact]
     public void Resolve_WithSelectedUsers_UsesUserChainRegardlessOfMode()
     {
-        var user1 = Guid.NewGuid();
-        var user2 = Guid.NewGuid();
+        var user1 = 11;
+        var user2 = 12;
         var version = new WorkflowVersion
         {
             ApprovalMode = ApprovalMode.Group,
@@ -153,7 +153,7 @@ public class ApprovalChainResolverTests
                     Name = "Managers",
                     SequenceOrder = 1,
                     Requirement = GroupApprovalRequirement.AnyOneMember,
-                    Members = [new ApproverGroupMember { UserId = Guid.NewGuid() }]
+                    Members = [new ApproverGroupMember { UserId = 99 }]
                 }
             ]
         };
@@ -168,7 +168,7 @@ public class ApprovalChainResolverTests
     [Fact]
     public void Resolve_HybridMode_WithoutSelectedUsers_UsesConfiguredGroups()
     {
-        var groupApprover = Guid.NewGuid();
+        var groupApprover = 21;
         var version = new WorkflowVersion
         {
             ApprovalMode = ApprovalMode.Hybrid,
@@ -214,7 +214,7 @@ public class WorkflowEngineRulesTests
     [Fact]
     public void CanUserActOnStep_AllowsAssignedApproverOnly()
     {
-        var approverId = Guid.NewGuid();
+        var approverId = 42;
         var step = new WorkflowStep
         {
             Status = WorkflowStepStatus.Active,
@@ -222,6 +222,6 @@ public class WorkflowEngineRulesTests
         };
 
         Assert.True(WorkflowEngineRules.CanUserActOnStep(step, approverId, []));
-        Assert.False(WorkflowEngineRules.CanUserActOnStep(step, Guid.NewGuid(), []));
+        Assert.False(WorkflowEngineRules.CanUserActOnStep(step, 99, []));
     }
 }

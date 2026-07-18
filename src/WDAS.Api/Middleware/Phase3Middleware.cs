@@ -41,9 +41,9 @@ public class AuditViewMiddleware
             return;
         }
 
-        Guid? documentId = null;
+        int? documentId = null;
         if (path.StartsWith("/api/documents/", StringComparison.OrdinalIgnoreCase) &&
-            Guid.TryParse(path.Split('/').ElementAtOrDefault(3), out var docId))
+            int.TryParse(path.Split('/').ElementAtOrDefault(3), out var docId))
         {
             documentId = docId;
         }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Enums;
@@ -18,7 +19,7 @@ public class ReportingService
     }
 
     public async Task<IReadOnlyList<ApprovalTimeReportDto>> GetApprovalTimesAsync(
-        Guid? departmentId,
+        int? departmentId,
         DateTime? fromUtc,
         DateTime? toUtc,
         CancellationToken cancellationToken = default)
@@ -70,7 +71,7 @@ public class ReportingService
                     .Average();
 
                 return new ApprovalTimeReportDto(
-                    g.Key.DepartmentId,
+                    IdParsing.ToApi(g.Key.DepartmentId),
                     deptNames.GetValueOrDefault(g.Key.DepartmentId, "Unknown"),
                     g.Key.Name,
                     endToEnd,
@@ -82,7 +83,7 @@ public class ReportingService
     }
 
     public async Task<IReadOnlyList<BottleneckReportDto>> GetBottlenecksAsync(
-        Guid? departmentId,
+        int? departmentId,
         CancellationToken cancellationToken = default)
     {
         EnsureReportAccess(departmentId);
@@ -101,7 +102,7 @@ public class ReportingService
             .GroupBy(s => s.ApproverUserId!.Value)
             .Select(g => new BottleneckReportDto(
                 g.First().ApproverUser?.DisplayName ?? "Unknown",
-                g.Key,
+                IdParsing.ToApi(g.Key),
                 g.Count(),
                 g.Average(s => (s.CompletedAtUtc!.Value - s.ActivatedAtUtc!.Value).TotalHours),
                 g.Count(s => s.IsSlaBreached)))
@@ -112,7 +113,7 @@ public class ReportingService
 
     public async Task<IReadOnlyList<VolumeTrendReportDto>> GetVolumeTrendsAsync(
         int months,
-        Guid? departmentId,
+        int? departmentId,
         CancellationToken cancellationToken = default)
     {
         EnsureReportAccess(departmentId);
@@ -145,7 +146,7 @@ public class ReportingService
     }
 
     public async Task<SuccessMetricsDto> GetSuccessMetricsAsync(
-        Guid? departmentId,
+        int? departmentId,
         CancellationToken cancellationToken = default)
     {
         EnsureReportAccess(departmentId);
@@ -226,7 +227,7 @@ public class ReportingService
             submittedLast30);
     }
 
-    private void EnsureReportAccess(Guid? departmentId)
+    private void EnsureReportAccess(int? departmentId)
     {
         if (_currentUser.IsInRole(RoleNames.SuperAdmin) || _currentUser.IsInRole(RoleNames.Auditor))
         {
@@ -289,7 +290,7 @@ public class MobileService
         }
     }
 
-    public async Task<StepUpChallengeDto> GetStepUpRequirementAsync(Guid documentId, CancellationToken cancellationToken = default)
+    public async Task<StepUpChallengeDto> GetStepUpRequirementAsync(int documentId, CancellationToken cancellationToken = default)
     {
         var document = await _db.Documents
             .Include(d => d.Workflow)

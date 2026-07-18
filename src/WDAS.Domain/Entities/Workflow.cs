@@ -4,7 +4,7 @@ namespace WDAS.Domain.Entities;
 
 public class Workflow : Entity
 {
-    public Guid DepartmentId { get; set; }
+    public int DepartmentId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string DocumentType { get; set; } = string.Empty;
     public string? Description { get; set; }

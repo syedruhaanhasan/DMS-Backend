@@ -10,7 +10,7 @@ public class ApprovalChainResolver
     public IReadOnlyList<ResolvedApprovalStep> Resolve(
         WorkflowVersion version,
         decimal? amount,
-        IReadOnlyList<Guid>? adHocApproverUserIds)
+        IReadOnlyList<int>? adHocApproverUserIds)
     {
         // User-selected approvers (document "Approvers" field) always define the chain.
         if (adHocApproverUserIds is { Count: > 0 })
@@ -88,7 +88,7 @@ public class ApprovalChainResolver
         return steps;
     }
 
-    private static List<ResolvedApprovalStep> ResolveAdHoc(IReadOnlyList<Guid>? adHocApproverUserIds)
+    private static List<ResolvedApprovalStep> ResolveAdHoc(IReadOnlyList<int>? adHocApproverUserIds)
     {
         if (adHocApproverUserIds is null || adHocApproverUserIds.Count == 0)
         {
@@ -103,7 +103,7 @@ public class ApprovalChainResolver
     private static List<ResolvedApprovalStep> ResolveHybrid(
         WorkflowVersion version,
         decimal? amount,
-        IReadOnlyList<Guid>? adHocApproverUserIds)
+        IReadOnlyList<int>? adHocApproverUserIds)
     {
         var steps = new List<ResolvedApprovalStep>();
 
@@ -137,7 +137,7 @@ public class ApprovalChainResolver
 
 public record ResolvedApprovalStep(
     int StepOrder,
-    Guid? ApproverUserId,
-    Guid? ApproverGroupId,
+    int? ApproverUserId,
+    int? ApproverGroupId,
     string? GroupName,
     GroupApprovalRequirement? GroupRequirement);

@@ -21,7 +21,7 @@ public class WorkflowService
         _clock = clock;
     }
 
-    public async Task<IReadOnlyList<WorkflowDto>> GetWorkflowsAsync(Guid? departmentId, bool? isActive = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkflowDto>> GetWorkflowsAsync(int? departmentId, bool? isActive = null, CancellationToken cancellationToken = default)
     {
         var query = _db.Workflows.Include(w => w.Versions).AsQueryable();
 
@@ -67,14 +67,16 @@ public class WorkflowService
             throw new DomainException("Document type is required.");
         }
 
+        var departmentId = IdParsing.ParseRequired(request.DepartmentId, "Department id");
+
         if (await _db.Workflows.AnyAsync(
-                w => w.DepartmentId == request.DepartmentId &&
+                w => w.DepartmentId == departmentId &&
                      w.DocumentType == documentType &&
                      w.Name == name,
                 cancellationToken))
         {
             var existingId = await _db.Workflows
-                .Where(w => w.DepartmentId == request.DepartmentId &&
+                .Where(w => w.DepartmentId == departmentId &&
                             w.DocumentType == documentType &&
                             w.Name == name)
                 .Select(w => w.Id)
@@ -83,7 +85,7 @@ public class WorkflowService
             throw new ConflictException(
                 "workflow_exists",
                 $"A workflow named '{name}' already exists for this department and document type. Use a different workflow name or document type.",
-                new { workflowId = existingId });
+                new { workflowId = IdParsing.ToApi(existingId) });
         }
 
         var now = _clock.UtcNow;
@@ -94,7 +96,7 @@ public class WorkflowService
 
         var workflow = new Workflow
         {
-            DepartmentId = request.DepartmentId,
+            DepartmentId = departmentId,
             Name = name,
             DocumentType = documentType,
             Description = request.Description,
@@ -131,7 +133,7 @@ public class WorkflowService
         return MapWorkflow(workflow);
     }
 
-    public async Task<WorkflowDto> UpdateWorkflowAsync(Guid workflowId, UpdateWorkflowRequest request, CancellationToken cancellationToken = default)
+    public async Task<WorkflowDto> UpdateWorkflowAsync(int workflowId, UpdateWorkflowRequest request, CancellationToken cancellationToken = default)
     {
         var workflow = await _db.Workflows
             .FirstOrDefaultAsync(w => w.Id == workflowId, cancellationToken)
@@ -255,7 +257,7 @@ public class WorkflowService
         return MapWorkflow(refreshed);
     }
 
-    public async Task<IReadOnlyList<WorkflowVersionSummaryDto>> GetVersionsAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkflowVersionSummaryDto>> GetVersionsAsync(int workflowId, CancellationToken cancellationToken = default)
     {
         var workflow = await _db.Workflows
             .Include(w => w.Versions)
@@ -270,16 +272,16 @@ public class WorkflowService
             .ToList();
     }
 
-    public async Task<IReadOnlyList<MatrixTierDto>> GetMatrixTiersAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<MatrixTierDto>> GetMatrixTiersAsync(int workflowId, CancellationToken cancellationToken = default)
     {
         var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeTiers: true);
         return version.MatrixTiers
             .OrderBy(t => t.SequenceOrder)
-            .Select(t => new MatrixTierDto(t.Id, t.SequenceOrder, t.MinAmount, t.MaxAmount, Domain.Services.MatrixTierValidator.ParseApproverIds(t.ApproverUserIdsJson)))
+            .Select(t => MapMatrixTier(t))
             .ToList();
     }
 
-    public async Task<IReadOnlyList<MatrixTierDto>> SaveMatrixTiersAsync(Guid workflowId, SaveMatrixTiersRequest request, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<MatrixTierDto>> SaveMatrixTiersAsync(int workflowId, SaveMatrixTiersRequest request, CancellationToken cancellationToken = default)
     {
         var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeTiers: true);
 
@@ -297,7 +299,8 @@ public class WorkflowService
             SequenceOrder = t.SequenceOrder,
             MinAmount = t.MinAmount,
             MaxAmount = t.MaxAmount,
-            ApproverUserIdsJson = System.Text.Json.JsonSerializer.Serialize(t.ApproverUserIds),
+            ApproverUserIdsJson = System.Text.Json.JsonSerializer.Serialize(
+                t.ApproverUserIds.Select(id => IdParsing.ParseRequired(id, "Approver user id")).ToList()),
             CreatedAtUtc = _clock.UtcNow
         }).ToList();
 
@@ -311,10 +314,10 @@ public class WorkflowService
         version.UpdatedAtUtc = _clock.UtcNow;
         await SaveAsync(cancellationToken);
 
-        return tiers.Select(t => new MatrixTierDto(t.Id, t.SequenceOrder, t.MinAmount, t.MaxAmount, Domain.Services.MatrixTierValidator.ParseApproverIds(t.ApproverUserIdsJson))).ToList();
+        return tiers.Select(MapMatrixTier).ToList();
     }
 
-    public async Task<IReadOnlyList<ApproverGroupDto>> GetApproverGroupsAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ApproverGroupDto>> GetApproverGroupsAsync(int workflowId, CancellationToken cancellationToken = default)
     {
         var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeGroups: true);
         return version.ApproverGroups
@@ -323,7 +326,7 @@ public class WorkflowService
             .ToList();
     }
 
-    public async Task<IReadOnlyList<ApproverGroupDto>> SaveApproverGroupsAsync(Guid workflowId, SaveApproverGroupsRequest request, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ApproverGroupDto>> SaveApproverGroupsAsync(int workflowId, SaveApproverGroupsRequest request, CancellationToken cancellationToken = default)
     {
         var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeGroups: true);
 
@@ -351,7 +354,7 @@ public class WorkflowService
             {
                 group.Members.Add(new ApproverGroupMember
                 {
-                    UserId = memberId,
+                    UserId = IdParsing.ParseRequired(memberId, "Member user id"),
                     CreatedAtUtc = _clock.UtcNow
                 });
             }
@@ -366,8 +369,8 @@ public class WorkflowService
     }
 
     public async Task<IReadOnlyList<MatrixTierDto>> CloneMatrixFromWorkflowAsync(
-        Guid targetWorkflowId,
-        Guid sourceWorkflowId,
+        int targetWorkflowId,
+        int sourceWorkflowId,
         CancellationToken cancellationToken = default)
     {
         var sourceTiers = await GetMatrixTiersAsync(sourceWorkflowId, cancellationToken);
@@ -382,7 +385,7 @@ public class WorkflowService
     }
 
     private async Task<WorkflowVersion> GetEditableVersionAsync(
-        Guid workflowId,
+        int workflowId,
         CancellationToken cancellationToken,
         bool includeTiers = false,
         bool includeGroups = false)
@@ -403,7 +406,7 @@ public class WorkflowService
             .Select(v => v.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (versionId == Guid.Empty)
+        if (versionId == 0)
         {
             versionId = await _db.WorkflowVersions
                 .Where(v => v.WorkflowId == workflowId &&
@@ -413,7 +416,7 @@ public class WorkflowService
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
-        if (versionId == Guid.Empty)
+        if (versionId == 0)
         {
             versionId = await _db.WorkflowVersions
                 .Where(v => v.WorkflowId == workflowId)
@@ -436,12 +439,12 @@ public class WorkflowService
         return await query.FirstAsync(cancellationToken);
     }
 
-    public async Task DeleteWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public async Task DeleteWorkflowAsync(int workflowId, CancellationToken cancellationToken = default)
     {
         await SetWorkflowActiveStatusAsync(workflowId, false, cancellationToken);
     }
 
-    public async Task<WorkflowDto> SetWorkflowActiveStatusAsync(Guid workflowId, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<WorkflowDto> SetWorkflowActiveStatusAsync(int workflowId, bool isActive, CancellationToken cancellationToken = default)
     {
         var workflow = await _db.Workflows
             .Include(w => w.Versions)
@@ -569,7 +572,7 @@ public class WorkflowService
             {
                 group.Members.Add(new ApproverGroupMember
                 {
-                    UserId = memberId,
+                    UserId = IdParsing.ParseRequired(memberId, "Member user id"),
                     CreatedAtUtc = now
                 });
             }
@@ -586,7 +589,8 @@ public class WorkflowService
             SequenceOrder = t.SequenceOrder,
             MinAmount = t.MinAmount,
             MaxAmount = t.MaxAmount,
-            ApproverUserIdsJson = System.Text.Json.JsonSerializer.Serialize(t.ApproverUserIds),
+            ApproverUserIdsJson = System.Text.Json.JsonSerializer.Serialize(
+                t.ApproverUserIds.Select(id => IdParsing.ParseRequired(id, "Approver user id")).ToList()),
             CreatedAtUtc = now
         }).ToList();
 
@@ -611,8 +615,8 @@ public class WorkflowService
             .FirstOrDefault();
 
         return new WorkflowDto(
-            workflow.Id,
-            workflow.DepartmentId,
+            IdParsing.ToApi(workflow.Id),
+            IdParsing.ToApi(workflow.DepartmentId),
             workflow.Name,
             workflow.DocumentType,
             workflow.Description,
@@ -621,10 +625,18 @@ public class WorkflowService
     }
 
     private static WorkflowVersionSummaryDto MapVersion(WorkflowVersion version) =>
-        new(version.Id, version.VersionNumber, version.State, version.ApprovalMode, version.ApprovalSequence, version.ReturnResumePolicy, version.SlaThresholdHours, version.EscalationEnabled);
+        new(IdParsing.ToApi(version.Id), version.VersionNumber, version.State, version.ApprovalMode, version.ApprovalSequence, version.ReturnResumePolicy, version.SlaThresholdHours, version.EscalationEnabled);
 
     private static ApproverGroupDto MapGroup(ApproverGroup group) =>
-        new(group.Id, group.Name, group.SequenceOrder, group.Requirement, group.Members.Select(m => m.UserId).ToList());
+        new(IdParsing.ToApi(group.Id), group.Name, group.SequenceOrder, group.Requirement, group.Members.Select(m => IdParsing.ToApi(m.UserId)).ToList());
+
+    private static MatrixTierDto MapMatrixTier(ApprovalMatrixTier tier) =>
+        new(
+            IdParsing.ToApi(tier.Id),
+            tier.SequenceOrder,
+            tier.MinAmount,
+            tier.MaxAmount,
+            Domain.Services.MatrixTierValidator.ParseApproverIds(tier.ApproverUserIdsJson).Select(IdParsing.ToApi).ToList());
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {

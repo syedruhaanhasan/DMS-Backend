@@ -4,9 +4,9 @@ namespace WDAS.Domain.Entities;
 
 public class RoleMapping : Entity
 {
-    public Guid UserId { get; set; }
-    public Guid RoleId { get; set; }
-    public Guid? DepartmentId { get; set; }
+    public int UserId { get; set; }
+    public int RoleId { get; set; }
+    public int? DepartmentId { get; set; }
 
     public User User { get; set; } = null!;
     public SecurityRole Role { get; set; } = null!;

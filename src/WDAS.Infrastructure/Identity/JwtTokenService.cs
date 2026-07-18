@@ -26,12 +26,16 @@ public class JwtTokenService : IJwtTokenService
         _options = options.Value;
     }
 
-    public string CreateToken(AuthenticatedUser user)
+    public AccessTokenResult CreateToken(AuthenticatedUser user)
     {
+        var jti = Guid.NewGuid().ToString("N");
+        var expiresAtUtc = DateTime.UtcNow.AddHours(_options.ExpiryHours);
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, jti),
             new("ad_oid", user.AdObjectId),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new("department_id", user.DepartmentId.ToString())
@@ -48,13 +52,13 @@ public class JwtTokenService : IJwtTokenService
             issuer: _options.Issuer,
             audience: _options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(_options.ExpiryHours),
+            expires: expiresAtUtc,
             signingCredentials: credentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return new AccessTokenResult(new JwtSecurityTokenHandler().WriteToken(token), expiresAtUtc, jti);
     }
 
-    public string CreateExternalSessionToken(Guid sessionId, Guid workflowStepId, Guid documentId, DateTime expiresAtUtc)
+    public string CreateExternalSessionToken(int sessionId, int workflowStepId, int documentId, DateTime expiresAtUtc)
     {
         var claims = new List<Claim>
         {

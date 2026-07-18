@@ -4955,7 +4955,7 @@
     ]
   },
   "packageFolders": {
-    "D:\\nuget-packages-wdas": {}
+    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget": {}
   },
   "project": {
     "version": "1.0.0",
@@ -4963,7 +4963,7 @@
       "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
       "projectName": "WDAS.Api",
       "projectPath": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
-      "packagesPath": "D:\\nuget-packages-wdas",
+      "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget",
       "outputPath": "D:\\document management\\backend\\src\\WDAS.Api\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
