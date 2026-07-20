@@ -75,18 +75,20 @@ public class DocumentService
             AdHocApproverUserIdsJson = adHocIds is null
                 ? null
                 : JsonSerializer.Serialize(adHocIds),
+            CreatorReviewerUserIdsJson = SerializeCreatorReviewerIds(request.Recipients),
             CreatedAtUtc = now
         };
 
         foreach (var recipient in request.Recipients)
         {
+            var reviewerUserId = ParseReviewerUserId(recipient.ReviewerUserId);
             document.Recipients.Add(new DocumentRecipient
             {
                 RecipientName = recipient.RecipientName,
                 RecipientEmail = recipient.RecipientEmail,
                 // Reviewers added by the creator are informational recipients tied to a known user.
-                ReviewerUserId = IdParsing.ParseOptional(recipient.ReviewerUserId),
-                AddedByUserId = IdParsing.ParseOptional(recipient.ReviewerUserId) is null ? null : owner.Id,
+                ReviewerUserId = reviewerUserId,
+                AddedByUserId = reviewerUserId is null ? null : owner.Id,
                 CreatedAtUtc = now
             });
         }
@@ -98,6 +100,7 @@ public class DocumentService
 
         if (request.Submit)
         {
+            await EnsureCreatorReviewersMaterializedAsync(document, cancellationToken);
             await ApplySubmitAsync(document, request.IdempotencyKey, cancellationToken);
             await SaveAsync(cancellationToken);
         }
@@ -111,6 +114,10 @@ public class DocumentService
         // DELETE+UPDATE concurrency conflicts in the same SaveChanges batch.
         IQueryable<Document> query = _db.Documents.Include(d => d.Owner);
         if (!request.Submit && request.Recipients is not null)
+        {
+            query = query.Include(d => d.Recipients);
+        }
+        else if (request.Submit)
         {
             query = query.Include(d => d.Recipients);
         }
@@ -164,7 +171,7 @@ public class DocumentService
 
             foreach (var recipient in request.Recipients)
             {
-                var reviewerUserId = IdParsing.ParseOptional(recipient.ReviewerUserId);
+                var reviewerUserId = ParseReviewerUserId(recipient.ReviewerUserId);
                 document.Recipients.Add(new DocumentRecipient
                 {
                     DocumentId = document.Id,
@@ -175,10 +182,13 @@ public class DocumentService
                     CreatedAtUtc = _clock.UtcNow
                 });
             }
+
+            document.CreatorReviewerUserIdsJson = SerializeCreatorReviewerIds(request.Recipients);
         }
 
         if (request.Submit)
         {
+            await EnsureCreatorReviewersMaterializedAsync(document, cancellationToken);
             await ApplySubmitAsync(document, request.IdempotencyKey, cancellationToken);
             await SaveAsync(cancellationToken);
             return await GetDocumentDtoAsync(document.Id, cancellationToken);
@@ -217,8 +227,8 @@ public class DocumentService
     }
 
     /// <summary>
-    /// Lets the current approver attach a single informational reviewer while it is their
-    /// turn to act. Reviewers receive/can view the document but never approve or reject it.
+    /// Lets the current approver attach a reviewer while it is their turn. The document is sent
+    /// to the reviewer first; when they finish, it returns to this approver to approve/reject.
     /// </summary>
     public async Task<DocumentDto> AddReviewerAsync(int documentId, AddReviewerRequest request, CancellationToken cancellationToken = default)
     {
@@ -235,13 +245,9 @@ public class DocumentService
             throw new DomainException("Reviewers can only be added while the document is in approval.");
         }
 
-        // The caller must be the approver of a currently active step (i.e. it is their turn).
-        var isActiveApprover = document.WorkflowSteps
-            .Any(s => s.Status == WorkflowStepStatus.Active && s.ApproverUserId == _currentUser.UserId);
-        if (!isActiveApprover)
-        {
-            throw new DomainException("Only the current approver can add a reviewer.");
-        }
+        var activeStep = document.WorkflowSteps
+            .FirstOrDefault(s => s.Status == WorkflowStepStatus.Active && s.ApproverUserId == _currentUser.UserId)
+            ?? throw new DomainException("Only the current approver can add a reviewer.");
 
         // Each approver may add at most one reviewer.
         if (document.Recipients.Any(r => r.AddedByUserId == _currentUser.UserId))
@@ -274,10 +280,12 @@ public class DocumentService
             RecipientEmail = reviewer.Email,
             ReviewerUserId = reviewer.Id,
             AddedByUserId = _currentUser.UserId,
+            ReturnWorkflowStepId = activeStep.Id,
             CreatedAtUtc = now
         });
 
-        // Keep the "To" line in sync with the reviewer list.
+        activeStep.Status = WorkflowStepStatus.Paused;
+        document.Status = DocumentStatus.PendingReviewerReview;
         document.ToRecipients = string.IsNullOrWhiteSpace(document.ToRecipients)
             ? reviewer.DisplayName
             : $"{document.ToRecipients}, {reviewer.DisplayName}";
@@ -285,7 +293,6 @@ public class DocumentService
 
         await SaveAsync(cancellationToken);
 
-        // Best-effort: tell the reviewer they've been asked to review (informational only).
         try
         {
             await _notifications.DispatchAsync(new NotificationRequest(
@@ -295,12 +302,115 @@ public class DocumentService
                 document.Id,
                 null,
                 $"Document to review: {document.Subject}",
-                "You have been added as a reviewer on a document — for your information, no approval is required."),
+                "An approver has sent this document to you for review. Complete your review before they can approve it."),
                 cancellationToken);
         }
         catch
         {
             // Never fail adding a reviewer because a notification could not be sent.
+        }
+
+        return await GetDocumentDtoAsync(document.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Reviewer marks review complete. Creator-gated reviews return to the owner; approver-gated
+    /// reviews return to the approver who requested them.
+    /// </summary>
+    public async Task<DocumentDto> CompleteReviewerReviewAsync(
+        int documentId,
+        CompleteReviewerReviewRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var document = await _db.Documents
+            .Include(d => d.Recipients)
+            .Include(d => d.WorkflowSteps)
+            .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+            ?? throw new DomainException("Document not found.");
+
+        if (document.Status != DocumentStatus.PendingReviewerReview)
+        {
+            throw new DomainException("Document is not awaiting reviewer review.");
+        }
+
+        var recipient = document.Recipients.FirstOrDefault(r =>
+            r.ReviewerUserId == _currentUser.UserId &&
+            r.ReviewedAtUtc == null)
+            ?? throw new DomainException("You are not an assigned reviewer on this document, or you have already completed your review.");
+
+        var now = _clock.UtcNow;
+        recipient.ReviewedAtUtc = now;
+        recipient.ReviewComment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
+        recipient.UpdatedAtUtc = now;
+
+        if (recipient.ReturnWorkflowStepId is int returnStepId)
+        {
+            var step = document.WorkflowSteps.FirstOrDefault(s => s.Id == returnStepId)
+                ?? throw new DomainException("Approval step for this review could not be found.");
+
+            step.Status = WorkflowStepStatus.Active;
+            document.Status = DocumentStatus.InApproval;
+            document.UpdatedAtUtc = now;
+
+            await SaveAsync(cancellationToken);
+
+            if (recipient.AddedByUserId is int approverUserId)
+            {
+                try
+                {
+                    await _notifications.DispatchAsync(new NotificationRequest(
+                        NotificationEventType.ReviewCompleted,
+                        approverUserId,
+                        null,
+                        document.Id,
+                        step.Id,
+                        $"Review complete: {document.Subject}",
+                        "Your reviewer has finished. You can now approve or reject the document."),
+                        cancellationToken);
+                }
+                catch
+                {
+                    // Never fail completing review because notification delivery failed.
+                }
+            }
+
+            return await GetDocumentDtoAsync(document.Id, cancellationToken);
+        }
+
+        var creatorReviewerIds = ParseCreatorReviewerIds(document.CreatorReviewerUserIdsJson);
+        var allCreatorReviewed = creatorReviewerIds.Count > 0
+            ? creatorReviewerIds.All(id =>
+                document.Recipients.Any(r => r.ReviewerUserId == id && r.ReviewedAtUtc != null))
+            : document.Recipients
+                .Where(r => r.ReviewerUserId != null && r.ReturnWorkflowStepId == null)
+                .All(r => r.ReviewedAtUtc != null);
+
+        if (allCreatorReviewed)
+        {
+            document.Status = DocumentStatus.PendingCreatorApproval;
+            document.UpdatedAtUtc = now;
+        }
+
+        await SaveAsync(cancellationToken);
+
+        if (allCreatorReviewed)
+        {
+            try
+            {
+                await _notifications.DispatchAsync(new NotificationRequest(
+                    NotificationEventType.ReviewCompleted,
+                    document.OwnerUserId,
+                    null,
+                    document.Id,
+                    null,
+                    $"Review complete: {document.Subject}",
+                    "Your reviewer has finished reviewing the document. Send it for approval when you are ready."),
+                    cancellationToken);
+            }
+            catch
+            {
+                // Never fail completing review because notification delivery failed.
+            }
         }
 
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
@@ -406,11 +516,14 @@ public class DocumentService
         if (!string.IsNullOrWhiteSpace(document.SubmitIdempotencyKey) &&
             !string.IsNullOrWhiteSpace(idempotencyKey) &&
             document.SubmitIdempotencyKey == idempotencyKey &&
-            document.Status is not DocumentStatus.Draft and not DocumentStatus.ReturnedForCorrection)
+            document.Status is not DocumentStatus.Draft
+                and not DocumentStatus.ReturnedForCorrection
+                and not DocumentStatus.PendingCreatorApproval)
         {
             return MapDocument(await LoadDocumentAsync(documentId, cancellationToken));
         }
 
+        await EnsureCreatorReviewersMaterializedAsync(document, cancellationToken);
         await ApplySubmitAsync(document, idempotencyKey, cancellationToken);
         await SaveAsync(cancellationToken);
         return await GetDocumentDtoAsync(document.Id, cancellationToken);
@@ -452,59 +565,248 @@ public class DocumentService
 
     private async Task ApplySubmitAsync(Document document, string? idempotencyKey, CancellationToken cancellationToken)
     {
+        if (document.Status == DocumentStatus.PendingCreatorApproval)
+        {
+            await StartApprovalWorkflowAsync(document, idempotencyKey, cancellationToken);
+            return;
+        }
+
         if (document.Status is not (DocumentStatus.Draft or DocumentStatus.ReturnedForCorrection))
         {
             throw new DomainException("Document has already been submitted.");
         }
 
-        var workflowVersion = await _db.WorkflowVersions
-            .Include(v => v.MatrixTiers)
-            .Include(v => v.ApproverGroups)
-                .ThenInclude(g => g.Members)
-            .FirstOrDefaultAsync(v => v.WorkflowId == document.WorkflowId && v.State == WorkflowVersionState.Active, cancellationToken)
-            ?? throw new DomainException("Active workflow version not found.");
-
+        var workflowVersion = await LoadActiveWorkflowVersionAsync(document.WorkflowId, cancellationToken);
         ValidateAdHocRequirements(workflowVersion, ParseAdHocIds(document.AdHocApproverUserIdsJson));
 
         if (document.Status == DocumentStatus.ReturnedForCorrection)
         {
-            // Use store ExecuteDelete so tracked entities / cascade order cannot cause concurrency conflicts.
-            var stepIds = await _db.WorkflowSteps
-                .AsNoTracking()
-                .Where(s => s.DocumentId == document.Id)
-                .Select(s => s.Id)
-                .ToListAsync(cancellationToken);
+            await ClearWorkflowStepsAsync(document.Id, cancellationToken);
+        }
 
-            if (stepIds.Count > 0)
+        if (await RequiresReviewerGateAsync(document, cancellationToken))
+        {
+            await ClearWorkflowStepsAsync(document.Id, cancellationToken);
+            await ResetRecipientReviewStateAsync(document.Id, cancellationToken);
+
+            var now = _clock.UtcNow;
+            foreach (var reviewer in document.Recipients.Where(r => r.ReviewerUserId != null))
             {
-                var actionIds = await _db.WorkflowStepActions
-                    .AsNoTracking()
-                    .Where(a => stepIds.Contains(a.WorkflowStepId))
-                    .Select(a => a.Id)
-                    .ToListAsync(cancellationToken);
+                reviewer.ReviewedAtUtc = null;
+                reviewer.ReviewComment = null;
+                reviewer.UpdatedAtUtc = now;
+            }
 
-                if (actionIds.Count > 0)
-                {
-                    await _db.Attachments
-                        .Where(a => a.WorkflowStepActionId != null && actionIds.Contains(a.WorkflowStepActionId.Value))
-                        .ExecuteUpdateAsync(
-                            setters => setters.SetProperty(a => a.WorkflowStepActionId, (int?)null),
-                            cancellationToken);
-                }
+            document.IsBodyLocked = true;
+            document.Status = DocumentStatus.PendingReviewerReview;
+            document.WorkflowVersionId = null;
+            document.SubmittedAtUtc = now;
+            document.SubmitIdempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
+            document.UpdatedAtUtc = now;
+            return;
+        }
 
-                await _db.ExternalApproverSessions
-                    .Where(s => stepIds.Contains(s.WorkflowStepId))
-                    .ExecuteDeleteAsync(cancellationToken);
+        if (await DocumentHasPendingReviewersAsync(document.Id, document.CreatorReviewerUserIdsJson, cancellationToken))
+        {
+            throw new DomainException("Document has reviewers who have not finished review. It cannot be sent for approval yet.");
+        }
 
-                await _db.WorkflowStepActions
-                    .Where(a => stepIds.Contains(a.WorkflowStepId))
-                    .ExecuteDeleteAsync(cancellationToken);
+        await StartApprovalWorkflowAsync(document, idempotencyKey, cancellationToken);
+    }
 
-                await _db.WorkflowSteps
-                    .Where(s => s.DocumentId == document.Id)
-                    .ExecuteDeleteAsync(cancellationToken);
+    private async Task EnsureCreatorReviewersMaterializedAsync(Document document, CancellationToken cancellationToken)
+    {
+        var creatorReviewerIds = ParseCreatorReviewerIds(document.CreatorReviewerUserIdsJson);
+        if (creatorReviewerIds.Count == 0)
+        {
+            creatorReviewerIds = document.Recipients
+                .Where(r => r.ReviewerUserId != null && r.AddedByUserId == document.OwnerUserId)
+                .Select(r => r.ReviewerUserId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (creatorReviewerIds.Count > 0)
+            {
+                document.CreatorReviewerUserIdsJson = JsonSerializer.Serialize(creatorReviewerIds);
             }
         }
+
+        if (creatorReviewerIds.Count == 0)
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        var changed = false;
+        foreach (var reviewerId in creatorReviewerIds)
+        {
+            if (document.Recipients.Any(r => r.ReviewerUserId == reviewerId))
+            {
+                continue;
+            }
+
+            var reviewer = await _db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == reviewerId, cancellationToken);
+
+            document.Recipients.Add(new DocumentRecipient
+            {
+                DocumentId = document.Id,
+                RecipientName = reviewer?.DisplayName ?? $"User {reviewerId}",
+                RecipientEmail = reviewer?.Email,
+                ReviewerUserId = reviewerId,
+                AddedByUserId = document.OwnerUserId,
+                CreatedAtUtc = now
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await SaveAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// True when the document has at least one directory-linked reviewer (persisted in DB).
+    /// </summary>
+    private Task<bool> DocumentHasAssignedReviewersAsync(int documentId, CancellationToken cancellationToken) =>
+        _db.DocumentRecipients.AsNoTracking()
+            .AnyAsync(r => r.DocumentId == documentId && r.ReviewerUserId != null, cancellationToken);
+
+    private async Task<bool> DocumentHasPendingReviewersAsync(
+        int documentId,
+        string? creatorReviewerUserIdsJson,
+        CancellationToken cancellationToken)
+    {
+        var creatorReviewerIds = ParseCreatorReviewerIds(creatorReviewerUserIdsJson);
+        if (creatorReviewerIds.Count > 0)
+        {
+            var reviewedIds = await _db.DocumentRecipients.AsNoTracking()
+                .Where(r => r.DocumentId == documentId &&
+                            r.ReviewerUserId != null &&
+                            r.ReviewedAtUtc != null)
+                .Select(r => r.ReviewerUserId!.Value)
+                .ToListAsync(cancellationToken);
+
+            if (creatorReviewerIds.Any(id => !reviewedIds.Contains(id)))
+            {
+                return true;
+            }
+        }
+
+        return await _db.DocumentRecipients.AsNoTracking()
+            .AnyAsync(r => r.DocumentId == documentId &&
+                           r.ReviewerUserId != null &&
+                           r.ReviewedAtUtc == null &&
+                           r.ReturnWorkflowStepId == null,
+                cancellationToken);
+    }
+
+    private async Task ResetRecipientReviewStateAsync(int documentId, CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+        await _db.DocumentRecipients
+            .Where(r => r.DocumentId == documentId && r.ReviewerUserId != null)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(r => r.ReviewedAtUtc, (DateTime?)null)
+                    .SetProperty(r => r.ReviewComment, (string?)null)
+                    .SetProperty(r => r.UpdatedAtUtc, now),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// Initial submit with any linked reviewer must gate approval until review completes.
+    /// </summary>
+    private async Task<bool> RequiresReviewerGateAsync(Document document, CancellationToken cancellationToken)
+    {
+        if (document.Status is not (DocumentStatus.Draft or DocumentStatus.ReturnedForCorrection))
+        {
+            return false;
+        }
+
+        if (ParseCreatorReviewerIds(document.CreatorReviewerUserIdsJson).Count > 0)
+        {
+            return true;
+        }
+
+        if (document.Recipients.Any(r => r.ReviewerUserId != null))
+        {
+            return true;
+        }
+
+        return await DocumentHasAssignedReviewersAsync(document.Id, cancellationToken);
+    }
+
+    private async Task<WorkflowVersion> LoadActiveWorkflowVersionAsync(int workflowId, CancellationToken cancellationToken) =>
+        await _db.WorkflowVersions
+            .Include(v => v.MatrixTiers)
+            .Include(v => v.ApproverGroups)
+                .ThenInclude(g => g.Members)
+            .FirstOrDefaultAsync(v => v.WorkflowId == workflowId && v.State == WorkflowVersionState.Active, cancellationToken)
+            ?? throw new DomainException("Active workflow version not found.");
+
+    private async Task ClearWorkflowStepsAsync(int documentId, CancellationToken cancellationToken)
+    {
+        var stepIds = await _db.WorkflowSteps
+            .AsNoTracking()
+            .Where(s => s.DocumentId == documentId)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken);
+
+        if (stepIds.Count == 0)
+        {
+            return;
+        }
+
+        var actionIds = await _db.WorkflowStepActions
+            .AsNoTracking()
+            .Where(a => stepIds.Contains(a.WorkflowStepId))
+            .Select(a => a.Id)
+            .ToListAsync(cancellationToken);
+
+        if (actionIds.Count > 0)
+        {
+            await _db.Attachments
+                .Where(a => a.WorkflowStepActionId != null && actionIds.Contains(a.WorkflowStepActionId.Value))
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(a => a.WorkflowStepActionId, (int?)null),
+                    cancellationToken);
+        }
+
+        await _db.ExternalApproverSessions
+            .Where(s => stepIds.Contains(s.WorkflowStepId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _db.WorkflowStepActions
+            .Where(a => stepIds.Contains(a.WorkflowStepId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _db.WorkflowSteps
+            .Where(s => s.DocumentId == documentId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    private async Task StartApprovalWorkflowAsync(
+        Document document,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        if (document.Status != DocumentStatus.PendingCreatorApproval)
+        {
+            var awaitingReviewer = await DocumentHasPendingReviewersAsync(
+                document.Id,
+                document.CreatorReviewerUserIdsJson,
+                cancellationToken);
+
+            if (awaitingReviewer || document.Status == DocumentStatus.PendingReviewerReview)
+            {
+                throw new DomainException("Document must complete reviewer review before it can be sent for approval.");
+            }
+        }
+
+        var workflowVersion = await LoadActiveWorkflowVersionAsync(document.WorkflowId, cancellationToken);
+        ValidateAdHocRequirements(workflowVersion, ParseAdHocIds(document.AdHocApproverUserIdsJson));
 
         var resolvedSteps = _chainResolver.Resolve(workflowVersion, document.Amount, ParseAdHocIds(document.AdHocApproverUserIdsJson));
         if (resolvedSteps.Count == 0)
@@ -516,7 +818,7 @@ public class DocumentService
         document.WorkflowVersionId = workflowVersion.Id;
         document.IsBodyLocked = true;
         document.Status = DocumentStatus.InApproval;
-        document.SubmittedAtUtc = now;
+        document.SubmittedAtUtc ??= now;
         document.SubmitIdempotencyKey = idempotencyKey ?? Guid.NewGuid().ToString();
         document.UpdatedAtUtc = now;
 
@@ -560,6 +862,7 @@ public class DocumentService
     private async Task<Document> LoadDocumentForSubmitAsync(int documentId, CancellationToken cancellationToken)
     {
         return await _db.Documents
+            .Include(d => d.Recipients)
             .Include(d => d.WorkflowSteps)
                 .ThenInclude(s => s.Actions)
             .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)
@@ -595,9 +898,10 @@ public class DocumentService
             return;
         }
 
-        var visibleStep = document.WorkflowSteps
-            .Where(s => s.Status == WorkflowStepStatus.Active)
-            .Any(s => s.ApproverUserId == _currentUser.UserId);
+        var visibleStep = document.Status == DocumentStatus.InApproval &&
+            document.WorkflowSteps
+                .Where(s => s.Status == WorkflowStepStatus.Active)
+                .Any(s => s.ApproverUserId == _currentUser.UserId);
 
         var priorCompleted = document.WorkflowSteps
             .Where(s => s.Status == WorkflowStepStatus.Approved)
@@ -608,7 +912,16 @@ public class DocumentService
         var isReviewer = document.Recipients.Any(r => r.ReviewerUserId == _currentUser.UserId) &&
             document.Status != DocumentStatus.Draft;
 
-        if (visibleStep || priorCompleted || isReviewer)
+        var isApproverWaitingForReviewer = document.Status == DocumentStatus.PendingReviewerReview &&
+            (document.WorkflowSteps.Any(s =>
+                s.Status == WorkflowStepStatus.Paused &&
+                s.ApproverUserId == _currentUser.UserId) ||
+            document.Recipients.Any(r =>
+                r.AddedByUserId == _currentUser.UserId &&
+                r.ReviewerUserId != null &&
+                r.ReviewedAtUtc == null));
+
+        if (visibleStep || priorCompleted || isReviewer || isApproverWaitingForReviewer)
         {
             return;
         }
@@ -657,6 +970,47 @@ public class DocumentService
         return JsonSerializer.Deserialize<List<int>>(json);
     }
 
+    /// <summary>
+    /// Reviewer routing depends on a resolvable directory user id — reject silently-invalid ids.
+    /// </summary>
+    private static string? SerializeCreatorReviewerIds(IReadOnlyCollection<DocumentRecipientInput> recipients)
+    {
+        var ids = recipients
+            .Select(r => ParseReviewerUserId(r.ReviewerUserId))
+            .Where(id => id != null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        return ids.Count == 0 ? null : JsonSerializer.Serialize(ids);
+    }
+
+    private static List<int> ParseCreatorReviewerIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<List<int>>(json) ?? [];
+    }
+
+    private static int? ParseReviewerUserId(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var id = IdParsing.ParseOptional(raw);
+        if (id is null)
+        {
+            throw new DomainException("Reviewer user id is invalid.");
+        }
+
+        return id;
+    }
+
     private static DocumentDto MapDocument(Document document) =>
         new(
             IdParsing.ToApi(document.Id),
@@ -685,7 +1039,9 @@ public class DocumentService
                 r.RecipientName,
                 r.RecipientEmail,
                 r.ReviewerUserId is int ru ? IdParsing.ToApi(ru) : null,
-                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null)).ToList(),
+                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null,
+                r.ReviewedAtUtc,
+                r.ReviewComment)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
                 .Select(s => new WorkflowStepDto(
@@ -712,7 +1068,7 @@ public class DocumentService
     {
         var document = await _db.Documents.AsNoTracking()
             .Where(d => d.Id == documentId)
-            .Select(d => new { d.Id, d.Subject, d.OwnerUserId })
+            .Select(d => new { d.Id, d.Subject, d.OwnerUserId, d.Status })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (document is null)
@@ -720,26 +1076,44 @@ public class DocumentService
             return;
         }
 
-        // Tell creator-added reviewers the document is now available for their review.
-        var creatorReviewerIds = await _db.Documents.AsNoTracking()
-            .Where(d => d.Id == documentId)
-            .SelectMany(d => d.Recipients)
-            .Where(r => r.ReviewerUserId != null && r.AddedByUserId == document.OwnerUserId)
-            .Select(r => r.ReviewerUserId!.Value)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        foreach (var reviewerId in creatorReviewerIds)
+        if (document.Status == DocumentStatus.PendingReviewerReview)
         {
-            await _notifications.DispatchAsync(new NotificationRequest(
-                NotificationEventType.AddedAsReviewer,
-                reviewerId,
-                null,
-                document.Id,
-                null,
-                $"Document to review: {document.Subject}",
-                "You have been added as a reviewer on a document — for your information, no approval is required."),
-                cancellationToken);
+            var creatorReviewerIds = await _db.DocumentRecipients.AsNoTracking()
+                .Where(r => r.DocumentId == documentId &&
+                            r.ReviewerUserId != null &&
+                            r.ReviewedAtUtc == null)
+                .Select(r => r.ReviewerUserId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (creatorReviewerIds.Count == 0)
+            {
+                var creatorIdsJson = await _db.Documents.AsNoTracking()
+                    .Where(d => d.Id == documentId)
+                    .Select(d => d.CreatorReviewerUserIdsJson)
+                    .FirstOrDefaultAsync(cancellationToken);
+                creatorReviewerIds = ParseCreatorReviewerIds(creatorIdsJson);
+            }
+
+            foreach (var reviewerId in creatorReviewerIds)
+            {
+                await _notifications.DispatchAsync(new NotificationRequest(
+                    NotificationEventType.AddedAsReviewer,
+                    reviewerId,
+                    null,
+                    document.Id,
+                    null,
+                    $"Document to review: {document.Subject}",
+                    "A document has been sent to you for review. Complete your review before it can go to the approver."),
+                    cancellationToken);
+            }
+
+            return;
+        }
+
+        if (document.Status != DocumentStatus.InApproval)
+        {
+            return;
         }
 
         var activeStep = await _db.WorkflowSteps.AsNoTracking()

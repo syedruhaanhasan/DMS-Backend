@@ -37,8 +37,16 @@ public class SearchController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<SearchResultDto>> Search([FromQuery] SearchRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<SearchResultDto>> Search(
+        [FromQuery] SearchRequest request,
+        [FromQuery] bool repositoryOnly = false,
+        CancellationToken cancellationToken = default)
     {
+        if (repositoryOnly)
+        {
+            request = request with { RepositoryOnly = true };
+        }
+
         return Ok(await _searchService.SearchAsync(request, cancellationToken));
     }
 }

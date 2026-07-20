@@ -8,7 +8,7 @@
     "net10.0": []
   },
   "packageFolders": {
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget": {}
+    "C:\\Users\\user\\.nuget\\packages": {}
   },
   "project": {
     "version": "1.0.0",
@@ -16,7 +16,7 @@
       "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
       "projectName": "WDAS.Domain",
       "projectPath": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
-      "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget",
+      "packagesPath": "C:\\Users\\user\\.nuget\\packages",
       "outputPath": "D:\\document management\\backend\\src\\WDAS.Domain\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [

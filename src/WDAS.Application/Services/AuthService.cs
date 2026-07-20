@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
+using WDAS.Application.Audit;
 using WDAS.Application.Models;
 using WDAS.Domain.Common;
 using WDAS.Domain.Entities;
@@ -242,7 +243,9 @@ public class AuthService
             AuditEventType.Update,
             "User created",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { user.Id, user.UserPrincipalName, RoleIds = roleIds, request.AccountType })),
+            EntityType: "User",
+            EntityId: user.Id.ToString(),
+            DetailsJson: BuildUserCreatedAuditDetails(user, request, isLocalAccount, securityRoles)),
             cancellationToken);
 
         user = await _db.Users
@@ -260,9 +263,20 @@ public class AuthService
 
         var user = await _db.Users
             .Include(u => u.Department)
+            .Include(u => u.UserType)
             .Include(u => u.RoleMappings).ThenInclude(m => m.Role)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new DomainException("User not found.");
+
+        var oldRoles = string.Join(", ", user.RoleMappings.Select(m => m.Role.Name).OrderBy(n => n));
+        var oldDepartmentName = user.Department?.Name;
+        var oldUserTypeName = user.UserType?.Name;
+        var oldUsername = user.UserPrincipalName;
+        var oldDisplayName = user.DisplayName;
+        var oldEmail = user.Email;
+        var oldPhone = user.PhoneNumber;
+        var oldTitle = user.Title;
+        var oldActive = !user.IsDisabledInApp;
 
         var username = request.UserPrincipalName.Trim();
         if (string.IsNullOrWhiteSpace(username))
@@ -337,6 +351,16 @@ public class AuthService
         user.UserTypeId = await ResolveUserTypeIdAsync(request.UserTypeId, cancellationToken);
         user.UpdatedAtUtc = now;
 
+        string? newUserTypeName = null;
+        if (user.UserTypeId.HasValue)
+        {
+            newUserTypeName = await _db.UserTypes
+                .AsNoTracking()
+                .Where(t => t.Id == user.UserTypeId.Value)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         if (request.IsActive.HasValue)
         {
             user.IsDisabledInApp = !request.IsActive.Value;
@@ -365,22 +389,28 @@ public class AuthService
 
         await SaveAsync(cancellationToken);
 
+        var newRoles = string.Join(", ", securityRoles.Select(r => r.Name).OrderBy(n => n));
+        var newActive = request.IsActive.HasValue ? request.IsActive.Value : oldActive;
+
         await _auditWriter.WriteAsync(new AuditWriteRequest(
             AuditEventType.Update,
             "User updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new
-            {
-                userId,
-                user.UserPrincipalName,
-                user.DisplayName,
-                user.Email,
-                user.PhoneNumber,
-                user.Title,
-                DepartmentId = department.Id,
-                RoleIds = roleIds,
-                request.IsActive
-            })),
+            EntityType: "User",
+            EntityId: userId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userId", userId)
+                .Set("targetUser", user.DisplayName)
+                .Track("Username", oldUsername, username)
+                .Track("Display name", oldDisplayName, request.DisplayName.Trim())
+                .Track("Email", oldEmail, email)
+                .Track("Phone", oldPhone, user.PhoneNumber)
+                .Track("Title", oldTitle, user.Title)
+                .Track("Department", oldDepartmentName, department.Name)
+                .Track("User type", oldUserTypeName, newUserTypeName)
+                .Track("Roles", oldRoles, newRoles)
+                .Track("Active", oldActive, newActive)
+                .ToJson()),
             cancellationToken);
 
         user = await _db.Users
@@ -398,9 +428,11 @@ public class AuthService
 
         var user = await _db.Users
             .Include(u => u.Department)
-            .Include(u => u.RoleMappings)
+            .Include(u => u.RoleMappings).ThenInclude(m => m.Role)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new DomainException("User not found.");
+
+        var oldRoles = string.Join(", ", user.RoleMappings.Select(m => m.Role.Name).OrderBy(n => n));
 
         var roleIds = await ResolveRoleIdsAsync(request.RoleIds, request.Roles, request.Role, cancellationToken);
         if (roleIds.Count == 0)
@@ -441,11 +473,19 @@ public class AuthService
         user.UpdatedAtUtc = now;
         await SaveAsync(cancellationToken);
 
+        var newRoles = string.Join(", ", securityRoles.Select(r => r.Name).OrderBy(n => n));
+
         await _auditWriter.WriteAsync(new AuditWriteRequest(
             AuditEventType.Update,
             "User roles updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userId, RoleIds = roleIds })),
+            EntityType: "User",
+            EntityId: userId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userId", userId)
+                .Set("targetUser", user.DisplayName)
+                .Track("Roles", oldRoles, newRoles)
+                .ToJson()),
             cancellationToken);
 
         user = await _db.Users
@@ -479,7 +519,13 @@ public class AuthService
             AuditEventType.Update,
             "User disabled",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userId })),
+            EntityType: "User",
+            EntityId: userId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userId", userId)
+                .Set("targetUser", user.DisplayName)
+                .Track("Active", true, false)
+                .ToJson()),
             cancellationToken);
     }
 
@@ -497,6 +543,8 @@ public class AuthService
             .Include(u => u.RoleMappings).ThenInclude(m => m.Role).ThenInclude(r => r.Permissions)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             ?? throw new DomainException("User not found.");
+
+        var wasActive = !user.IsDisabledInApp;
 
         user.IsDisabledInApp = !isActive;
         if (!isActive)
@@ -516,7 +564,13 @@ public class AuthService
             AuditEventType.Update,
             isActive ? "User activated" : "User deactivated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userId, isActive })),
+            EntityType: "User",
+            EntityId: userId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userId", userId)
+                .Set("targetUser", user.DisplayName)
+                .Track("Active", wasActive, isActive)
+                .ToJson()),
             cancellationToken);
 
         return MapUser(user);
@@ -722,7 +776,13 @@ public class AuthService
             AuditEventType.Update,
             "Department created",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { department.Id, department.Name, department.Code })),
+            EntityType: "Department",
+            EntityId: department.Id.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("departmentId", department.Id)
+                .TrackCreated("Name", department.Name)
+                .TrackCreated("Code", department.Code)
+                .ToJson()),
             cancellationToken);
 
         return MapDepartment(department);
@@ -734,6 +794,10 @@ public class AuthService
 
         var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId, cancellationToken)
             ?? throw new DomainException("Department not found.");
+
+        var oldName = department.Name;
+        var oldCode = department.Code;
+        var oldActive = department.IsActive;
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
@@ -768,7 +832,14 @@ public class AuthService
             AuditEventType.Update,
             "Department updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { department.Id, department.Name, department.Code, department.IsActive })),
+            EntityType: "Department",
+            EntityId: departmentId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("departmentId", departmentId)
+                .Track("Name", oldName, department.Name)
+                .Track("Code", oldCode, department.Code)
+                .Track("Active", oldActive, department.IsActive)
+                .ToJson()),
             cancellationToken);
 
         return MapDepartment(department);
@@ -850,6 +921,30 @@ public class AuthService
         ApplicationRole.ItAdmin => RoleNames.ItAdmin,
         _ => role.ToString(),
     };
+
+    private static string BuildUserCreatedAuditDetails(
+        User user,
+        CreateUserRequest request,
+        bool isLocalAccount,
+        IReadOnlyList<SecurityRole> securityRoles)
+    {
+        var builder = AuditDetailsBuilder.Create()
+            .Set("userId", user.Id)
+            .Set("targetUser", user.DisplayName)
+            .TrackCreated("Username", user.UserPrincipalName)
+            .TrackCreated("Display name", user.DisplayName)
+            .TrackCreated("Email", user.Email)
+            .TrackCreated("Title", user.Title)
+            .TrackCreated("Account type", request.AccountType.ToString())
+            .TrackCreated("Roles", string.Join(", ", securityRoles.Select(r => r.Name).OrderBy(n => n)));
+
+        if (isLocalAccount)
+        {
+            builder.TrackPasswordSet();
+        }
+
+        return builder.ToJson();
+    }
 
     private void EnsureSuperAdmin()
     {

@@ -1,22 +1,22 @@
 {
   "version": 2,
-  "dgSpecHash": "kFjcXyfsC1E=",
+  "dgSpecHash": "ztWhYo/fYII=",
   "success": true,
-  "projectFilePath": "D:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj",
+  "projectFilePath": "d:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.entityframeworkcore\\10.0.0\\microsoft.entityframeworkcore.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.entityframeworkcore.abstractions\\10.0.0\\microsoft.entityframeworkcore.abstractions.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.entityframeworkcore.analyzers\\10.0.0\\microsoft.entityframeworkcore.analyzers.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.entityframeworkcore.relational\\10.0.0\\microsoft.entityframeworkcore.relational.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.caching.abstractions\\10.0.0\\microsoft.extensions.caching.abstractions.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.caching.memory\\10.0.0\\microsoft.extensions.caching.memory.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.configuration.abstractions\\10.0.0\\microsoft.extensions.configuration.abstractions.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.dependencyinjection\\10.0.0\\microsoft.extensions.dependencyinjection.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.dependencyinjection.abstractions\\10.0.0\\microsoft.extensions.dependencyinjection.abstractions.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.logging\\10.0.0\\microsoft.extensions.logging.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.logging.abstractions\\10.0.0\\microsoft.extensions.logging.abstractions.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.options\\10.0.0\\microsoft.extensions.options.10.0.0.nupkg.sha512",
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget\\microsoft.extensions.primitives\\10.0.0\\microsoft.extensions.primitives.10.0.0.nupkg.sha512"
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.entityframeworkcore\\10.0.0\\microsoft.entityframeworkcore.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\10.0.0\\microsoft.entityframeworkcore.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\10.0.0\\microsoft.entityframeworkcore.analyzers.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.entityframeworkcore.relational\\10.0.0\\microsoft.entityframeworkcore.relational.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.caching.abstractions\\10.0.0\\microsoft.extensions.caching.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.caching.memory\\10.0.0\\microsoft.extensions.caching.memory.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\10.0.0\\microsoft.extensions.configuration.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\10.0.0\\microsoft.extensions.dependencyinjection.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\10.0.0\\microsoft.extensions.dependencyinjection.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.logging\\10.0.0\\microsoft.extensions.logging.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\10.0.0\\microsoft.extensions.logging.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.options\\10.0.0\\microsoft.extensions.options.10.0.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.extensions.primitives\\10.0.0\\microsoft.extensions.primitives.10.0.0.nupkg.sha512"
   ],
   "logs": []
 }

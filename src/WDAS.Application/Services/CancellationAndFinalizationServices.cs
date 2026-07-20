@@ -16,17 +16,20 @@ public class CancellationService
     private readonly ICurrentUserService _currentUser;
     private readonly IClock _clock;
     private readonly INotificationDispatcher _notifications;
+    private readonly IDocumentSearchIndexer _searchIndexer;
 
     public CancellationService(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         IClock clock,
-        INotificationDispatcher notifications)
+        INotificationDispatcher notifications,
+        IDocumentSearchIndexer searchIndexer)
     {
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
         _notifications = notifications;
+        _searchIndexer = searchIndexer;
     }
 
     public async Task<DocumentDto> CancelAsync(int documentId, CancelDocumentRequest request, CancellationToken cancellationToken = default)
@@ -96,6 +99,15 @@ public class CancellationService
                 cancellationToken);
         }
 
+        try
+        {
+            await _searchIndexer.IndexDocumentAsync(document.Id, cancellationToken);
+        }
+        catch
+        {
+            // Search index can catch up later; cancellation already succeeded.
+        }
+
         return MapDocument(document);
     }
 
@@ -127,7 +139,9 @@ public class CancellationService
                 r.RecipientName,
                 r.RecipientEmail,
                 r.ReviewerUserId is int ru ? IdParsing.ToApi(ru) : null,
-                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null)).ToList(),
+                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null,
+                r.ReviewedAtUtc,
+                r.ReviewComment)).ToList(),
             document.WorkflowSteps.OrderBy(s => s.StepOrder).Select(s => new WorkflowStepDto(
                 IdParsing.ToApi(s.Id), s.StepOrder, s.ApproverUserId is int au ? IdParsing.ToApi(au) : null, s.ApproverUser?.DisplayName, s.GroupName,
                 s.Status, s.ActivatedAtUtc, s.CompletedAtUtc, s.SlaDueAtUtc, s.IsSlaBreached,

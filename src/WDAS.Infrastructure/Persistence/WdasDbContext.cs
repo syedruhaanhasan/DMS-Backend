@@ -48,6 +48,7 @@ public class WdasDbContext : DbContext, IApplicationDbContext, IUnitOfWork
     IQueryable<ApproverGroup> IApplicationDbContext.ApproverGroups => ApproverGroups;
     IQueryable<ApproverGroupMember> IApplicationDbContext.ApproverGroupMembers => ApproverGroupMembers;
     IQueryable<Document> IApplicationDbContext.Documents => Documents;
+    IQueryable<DocumentRecipient> IApplicationDbContext.DocumentRecipients => DocumentRecipients;
     IQueryable<WorkflowStep> IApplicationDbContext.WorkflowSteps => WorkflowSteps;
     IQueryable<WorkflowStepAction> IApplicationDbContext.WorkflowStepActions => WorkflowStepActions;
     IQueryable<Attachment> IApplicationDbContext.Attachments => Attachments;

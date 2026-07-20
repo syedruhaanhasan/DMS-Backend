@@ -7,5 +7,7 @@ public enum WorkflowStepStatus
     Approved = 3,
     Rejected = 4,
     Returned = 5,
-    Skipped = 6
+    Skipped = 6,
+    /// <summary>Approval step paused while an approver-added reviewer completes review.</summary>
+    Paused = 7
 }

@@ -32,9 +32,13 @@ public record DocumentRecipientDto(
     string RecipientName,
     string? RecipientEmail,
     string? ReviewerUserId,
-    string? AddedById);
+    string? AddedById,
+    DateTime? ReviewedAtUtc,
+    string? ReviewComment);
 
 public record AddReviewerRequest(string ReviewerUserId);
+
+public record CompleteReviewerReviewRequest(string? Comment);
 
 public record CreateDocumentRequest(
     string WorkflowId,

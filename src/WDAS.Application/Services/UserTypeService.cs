@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
+using WDAS.Application.Audit;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
@@ -86,7 +87,13 @@ public class UserTypeService
             AuditEventType.Update,
             "User type created",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userType.Id, userType.Name, userType.Code })),
+            EntityType: "UserType",
+            EntityId: userType.Id.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userTypeId", userType.Id)
+                .TrackCreated("Name", userType.Name)
+                .TrackCreated("Code", userType.Code)
+                .ToJson()),
             cancellationToken);
 
         return MapUserType(userType);
@@ -98,6 +105,10 @@ public class UserTypeService
 
         var userType = await _db.UserTypes.FirstOrDefaultAsync(t => t.Id == userTypeId, cancellationToken)
             ?? throw new DomainException("User type not found.");
+
+        var oldName = userType.Name;
+        var oldDescription = userType.Description;
+        var oldActive = userType.IsActive;
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
@@ -121,7 +132,14 @@ public class UserTypeService
             AuditEventType.Update,
             "User type updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { userType.Id, userType.Name, userType.Code })),
+            EntityType: "UserType",
+            EntityId: userTypeId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("userTypeId", userTypeId)
+                .Track("Name", oldName, userType.Name)
+                .Track("Description", oldDescription, userType.Description)
+                .Track("Active", oldActive, userType.IsActive)
+                .ToJson()),
             cancellationToken);
 
         return MapUserType(userType);

@@ -38,7 +38,8 @@ public record SearchRequest(
     DateTime? FromUtc,
     DateTime? ToUtc,
     int Skip = 0,
-    int Take = 25);
+    int Take = 25,
+    bool RepositoryOnly = false);
 
 public record SearchResultItemDto(
     string DocumentId,
@@ -46,6 +47,7 @@ public record SearchResultItemDto(
     string? ArchiveDocumentId,
     string Subject,
     string OwnerDisplayName,
+    string OwnerUserId,
     string Status,
     decimal? Amount,
     DateTime? SubmittedAtUtc,

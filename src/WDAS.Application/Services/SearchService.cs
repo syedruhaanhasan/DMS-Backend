@@ -4,6 +4,7 @@ using WDAS.Application;
 using WDAS.Application.Abstractions;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
+using WDAS.Domain.Enums;
 using WDAS.Domain.Exceptions;
 
 namespace WDAS.Application.Services;
@@ -23,6 +24,11 @@ public partial class SearchService
 
     public async Task<SearchResultDto> SearchAsync(SearchRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.RepositoryOnly)
+        {
+            return await SearchRepositoryAsync(request, cancellationToken);
+        }
+
         var query = _db.DocumentSearchIndexes.AsNoTracking().AsQueryable();
         query = ApplyVisibilityScope(query);
 
@@ -73,11 +79,14 @@ public partial class SearchService
         if (approverUserId.HasValue)
         {
             var approverId = approverUserId.Value;
+            var inApprovalStatus = DocumentStatus.InApproval.ToString();
             var docIds = _db.WorkflowSteps
-                .Where(s => s.ApproverUserId == approverId)
+                .Where(s => s.ApproverUserId == approverId &&
+                            s.Status == WorkflowStepStatus.Active &&
+                            s.Document.Status == DocumentStatus.InApproval)
                 .Select(s => s.DocumentId)
                 .Distinct();
-            query = query.Where(i => docIds.Contains(i.DocumentId));
+            query = query.Where(i => docIds.Contains(i.DocumentId) && i.Status == inApprovalStatus);
         }
 
         var items = await query
@@ -102,6 +111,7 @@ public partial class SearchService
                 i.ArchiveDocumentId,
                 i.Subject,
                 i.OwnerDisplayName,
+                IdParsing.ToApi(i.OwnerUserId),
                 i.Status,
                 i.Amount,
                 i.SubmittedAtUtc,
@@ -122,6 +132,104 @@ public partial class SearchService
         }
 
         return query.Where(i => i.OwnerUserId == _currentUser.UserId);
+    }
+
+    private async Task<SearchResultDto> SearchRepositoryAsync(SearchRequest request, CancellationToken cancellationToken)
+    {
+        var query = _db.Documents
+            .AsNoTracking()
+            .Include(d => d.Owner)
+            .Where(d =>
+                d.Status == DocumentStatus.Finalized ||
+                d.Status == DocumentStatus.ReadyForFinalization ||
+                d.Status == DocumentStatus.Rejected ||
+                d.Status == DocumentStatus.Cancelled);
+
+        if (!string.IsNullOrWhiteSpace(request.Query))
+        {
+            var term = request.Query.Trim().ToLowerInvariant();
+            query = query.Where(d =>
+                d.Subject.ToLower().Contains(term) ||
+                d.BodyHtml.ToLower().Contains(term) ||
+                d.Owner.DisplayName.ToLower().Contains(term) ||
+                (d.ArchiveDocumentId != null && d.ArchiveDocumentId.ToLower().Contains(term)) ||
+                d.RecordNumber.ToString().Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ArchiveDocumentId))
+        {
+            query = query.Where(d => d.ArchiveDocumentId == request.ArchiveDocumentId);
+        }
+
+        var ownerUserId = IdParsing.ParseOptional(request.OwnerUserId);
+        if (ownerUserId.HasValue)
+        {
+            query = query.Where(d => d.OwnerUserId == ownerUserId);
+        }
+
+        if (request.Status.HasValue)
+        {
+            query = query.Where(d => d.Status == request.Status.Value);
+        }
+
+        if (request.MinAmount.HasValue)
+        {
+            query = query.Where(d => d.Amount >= request.MinAmount);
+        }
+
+        if (request.MaxAmount.HasValue)
+        {
+            query = query.Where(d => d.Amount <= request.MaxAmount);
+        }
+
+        if (request.FromUtc.HasValue)
+        {
+            query = query.Where(d => d.SubmittedAtUtc >= request.FromUtc);
+        }
+
+        if (request.ToUtc.HasValue)
+        {
+            query = query.Where(d => d.SubmittedAtUtc <= request.ToUtc);
+        }
+
+        var approverUserId = IdParsing.ParseOptional(request.ApproverUserId);
+        if (approverUserId.HasValue)
+        {
+            var approverId = approverUserId.Value;
+            var docIds = _db.WorkflowSteps
+                .Where(s => s.ApproverUserId == approverId)
+                .Select(s => s.DocumentId)
+                .Distinct();
+            query = query.Where(d => docIds.Contains(d.Id));
+        }
+
+        var items = await query
+            .OrderByDescending(d => d.SubmittedAtUtc ?? d.UpdatedAtUtc ?? d.CreatedAtUtc)
+            .Skip(request.Skip)
+            .Take(Math.Min(request.Take, 100))
+            .ToListAsync(cancellationToken);
+
+        var total = items.Count < request.Take ? request.Skip + items.Count : -1;
+
+        await _auditWriter.WriteAsync(new(
+            Domain.Enums.AuditEventType.Search,
+            "Repository search executed",
+            DetailsJson: System.Text.Json.JsonSerializer.Serialize(new { request.Query, total, request.RepositoryOnly })),
+            cancellationToken);
+
+        return new SearchResultDto(
+            total,
+            items.Select(d => new SearchResultItemDto(
+                IdParsing.ToApi(d.Id),
+                d.RecordNumber,
+                d.ArchiveDocumentId,
+                d.Subject,
+                d.Owner.DisplayName,
+                IdParsing.ToApi(d.OwnerUserId),
+                d.Status.ToString(),
+                d.Amount,
+                d.SubmittedAtUtc,
+                d.Subject)).ToList());
     }
 
     private static string BuildSnippet(DocumentSearchIndex index, string? query)

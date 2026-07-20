@@ -79,6 +79,15 @@ public class DocumentsController : ControllerBase
         return Ok(await _documentService.AddReviewerAsync(id, request, cancellationToken));
     }
 
+    [HttpPost("{id:int}/complete-review")]
+    public async Task<ActionResult<DocumentDto>> CompleteReviewerReview(
+        int id,
+        [FromBody] CompleteReviewerReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _documentService.CompleteReviewerReviewAsync(id, request, cancellationToken));
+    }
+
     private void SchedulePostSubmitSideEffects(int documentId)
     {
         // Run indexing/notifications after the response so submit feels instant even if SMTP is slow/down.

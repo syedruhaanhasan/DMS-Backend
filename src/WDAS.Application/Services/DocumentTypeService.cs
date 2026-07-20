@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
+using WDAS.Application.Audit;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
@@ -99,7 +100,14 @@ public class DocumentTypeService
             AuditEventType.Update,
             "Document type created",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { documentType.Id, documentType.Name, documentType.Code })),
+            EntityType: "DocumentType",
+            EntityId: documentType.Id.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("documentTypeId", documentType.Id)
+                .TrackCreated("Name", documentType.Name)
+                .TrackCreated("Code", documentType.Code)
+                .TrackCreated("Category", documentType.Category)
+                .ToJson()),
             cancellationToken);
 
         return MapDocumentType(documentType);
@@ -111,6 +119,12 @@ public class DocumentTypeService
 
         var documentType = await _db.DocumentTypeDefinitions.FirstOrDefaultAsync(t => t.Id == documentTypeId, cancellationToken)
             ?? throw new DomainException("Document type not found.");
+
+        var oldName = documentType.Name;
+        var oldDescription = documentType.Description;
+        var oldCategory = documentType.Category;
+        var oldAmountRequired = documentType.AmountRequired;
+        var oldActive = documentType.IsActive;
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
@@ -148,7 +162,16 @@ public class DocumentTypeService
             AuditEventType.Update,
             "Document type updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { documentType.Id, documentType.Name, documentType.Code })),
+            EntityType: "DocumentType",
+            EntityId: documentTypeId.ToString(),
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Set("documentTypeId", documentTypeId)
+                .Track("Name", oldName, documentType.Name)
+                .Track("Description", oldDescription, documentType.Description)
+                .Track("Category", oldCategory, documentType.Category)
+                .Track("Amount required", oldAmountRequired, documentType.AmountRequired)
+                .Track("Active", oldActive, documentType.IsActive)
+                .ToJson()),
             cancellationToken);
 
         return MapDocumentType(documentType);

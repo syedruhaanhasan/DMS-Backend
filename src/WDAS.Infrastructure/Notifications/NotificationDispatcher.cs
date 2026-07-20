@@ -319,6 +319,8 @@ public class NotificationDispatcher : INotificationDispatcher
     private static bool ShouldSendPush(NotificationEventType eventType) =>
         eventType is NotificationEventType.SubmittedForApproval
             or NotificationEventType.ApprovalRecorded
+            or NotificationEventType.AddedAsReviewer
+            or NotificationEventType.ReviewCompleted
             or NotificationEventType.Rejected
             or NotificationEventType.ReturnedForCorrection
             or NotificationEventType.SlaBreach

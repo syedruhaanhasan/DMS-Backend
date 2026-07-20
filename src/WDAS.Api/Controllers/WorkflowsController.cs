@@ -37,6 +37,12 @@ public class WorkflowsController : ControllerBase
         return Ok(await _workflowService.UpdateWorkflowAsync(id, request, cancellationToken));
     }
 
+    [HttpGet("{id:int}/routing")]
+    public async Task<ActionResult<WorkflowRoutingDto>> GetRouting(int id, CancellationToken cancellationToken)
+    {
+        return Ok(await _workflowService.GetWorkflowRoutingAsync(id, cancellationToken));
+    }
+
     [HttpGet("{id:int}/versions")]
     [Authorize(Policy = "perm:config.workflows")]
     public async Task<ActionResult<IReadOnlyList<WorkflowVersionSummaryDto>>> GetVersions(int id, CancellationToken cancellationToken)

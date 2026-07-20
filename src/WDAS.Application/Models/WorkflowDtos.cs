@@ -79,3 +79,12 @@ public record ApproverGroupInput(
     int SequenceOrder,
     GroupApprovalRequirement Requirement,
     IReadOnlyCollection<string> MemberUserIds);
+
+/// <summary>Read-only workflow routing for document creation (available to makers, not only config admins).</summary>
+public record WorkflowRoutingDto(
+    string Id,
+    ApprovalMode ApprovalMode,
+    ApprovalSequence ApprovalSequence,
+    IReadOnlyCollection<string> ApproverUserIds,
+    IReadOnlyCollection<ApproverGroupDto> Groups,
+    IReadOnlyCollection<MatrixTierDto> MatrixTiers);

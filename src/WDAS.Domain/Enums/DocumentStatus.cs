@@ -9,5 +9,9 @@ public enum DocumentStatus
     Rejected = 5,
     ReadyForFinalization = 6,
     Cancelled = 7,
-    Finalized = 8
+    Finalized = 8,
+    /// <summary>Creator submitted with reviewer(s); waiting for reviewer to complete review before approver.</summary>
+    PendingReviewerReview = 9,
+    /// <summary>Reviewer finished; document is back with creator to send for approval.</summary>
+    PendingCreatorApproval = 10
 }

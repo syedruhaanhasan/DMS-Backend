@@ -188,6 +188,51 @@ public class WorkflowIntegrationTests : IClassFixture<WdasWebApplicationFactory>
         Assert.Equal(WorkflowStepStatus.Active, restarted.WorkflowSteps.OrderBy(s => s.StepOrder).First().Status);
     }
 
+    [Fact]
+    public async Task Submit_WithCreatorReviewer_GatesApproverUntilReviewCompletes()
+    {
+        await ResetDatabaseAsync();
+
+        var (ownerToken, _) = await LoginAsync("maker.owner", "Owner123!");
+        var (approver1Token, approver1Id) = await LoginAsync("approver.one", "Approver123!");
+        var (_, reviewerId) = await LoginAsync("approver.two", "Approver123!");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var workflow = (await _client.GetFromJsonAsync<List<WorkflowDto>>("/api/workflows", _jsonOptions))!
+            .First(w => w.Name == "Purchase Request");
+
+        var createResponse = await _client.PostAsJsonAsync("/api/documents", new CreateDocumentRequest(
+            workflow.Id,
+            "Approver Two",
+            "Reviewer gate test",
+            "<p>Needs review before approval</p>",
+            null,
+            DocumentPriority.Normal,
+            [new DocumentRecipientInput("Approver Two", "approver2@wdas.local", reviewerId)],
+            [approver1Id],
+            true,
+            "review-gate-key-1"));
+        if (!createResponse.IsSuccessStatusCode)
+        {
+            Assert.Fail($"Create document failed: {await createResponse.Content.ReadAsStringAsync()}");
+        }
+
+        var document = await createResponse.Content.ReadFromJsonAsync<DocumentDto>(_jsonOptions);
+        Assert.NotNull(document);
+        Assert.Equal(DocumentStatus.PendingReviewerReview, document!.Status);
+        Assert.Empty(document.WorkflowSteps);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", approver1Token);
+        var approverDashboard = await _client.GetFromJsonAsync<PersonalDashboardDto>("/api/dashboard/me", _jsonOptions);
+        Assert.NotNull(approverDashboard);
+        Assert.DoesNotContain(approverDashboard!.PendingMyApproval, d => d.DocumentId == document.Id);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", reviewerId);
+        var forReview = await _client.GetFromJsonAsync<List<DashboardDocumentItemDto>>("/api/dashboard/for-review", _jsonOptions);
+        Assert.NotNull(forReview);
+        Assert.Contains(forReview!, d => d.DocumentId == document.Id);
+    }
+
     private async Task ResetDatabaseAsync()
     {
         using var scope = _factory.Services.CreateScope();

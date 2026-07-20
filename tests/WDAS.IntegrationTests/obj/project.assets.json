@@ -5114,7 +5114,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget": {}
+    "C:\\Users\\user\\.nuget\\packages": {}
   },
   "project": {
     "version": "1.0.0",
@@ -5122,7 +5122,7 @@
       "projectUniqueName": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\WDAS.IntegrationTests.csproj",
       "projectName": "WDAS.IntegrationTests",
       "projectPath": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\WDAS.IntegrationTests.csproj",
-      "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\d8f037d1d54608b01ae5e48664aac70c\\nuget",
+      "packagesPath": "C:\\Users\\user\\.nuget\\packages",
       "outputPath": "D:\\document management\\backend\\tests\\WDAS.IntegrationTests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [

@@ -14,5 +14,13 @@ public class DocumentRecipient : Entity
     /// <summary>User who added this reviewer (owner at creation, or an approver during approval).</summary>
     public int? AddedByUserId { get; set; }
 
+    /// <summary>When the reviewer marked their review complete (creator-gated flow).</summary>
+    public DateTime? ReviewedAtUtc { get; set; }
+
+    public string? ReviewComment { get; set; }
+
+    /// <summary>When set, reviewer completion reactivates this approval step (approver-gated review).</summary>
+    public int? ReturnWorkflowStepId { get; set; }
+
     public Document Document { get; set; } = null!;
 }

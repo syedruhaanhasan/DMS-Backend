@@ -15,6 +15,7 @@ public interface IApplicationDbContext
     IQueryable<ApproverGroup> ApproverGroups { get; }
     IQueryable<ApproverGroupMember> ApproverGroupMembers { get; }
     IQueryable<Document> Documents { get; }
+    IQueryable<DocumentRecipient> DocumentRecipients { get; }
     IQueryable<WorkflowStep> WorkflowSteps { get; }
     IQueryable<WorkflowStepAction> WorkflowStepActions { get; }
     IQueryable<Attachment> Attachments { get; }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using WDAS.Application.Abstractions;
+using WDAS.Application.Audit;
 using WDAS.Domain.Entities;
 
 namespace WDAS.Infrastructure.Audit;
@@ -34,6 +35,26 @@ public class AuditWriter : IAuditWriter
         var ip = http?.Connection.RemoteIpAddress?.ToString();
         var clientType = http?.Request.Headers["X-Client-Type"].FirstOrDefault() ?? "Web";
 
+        var actorDisplayName = request.ActorDisplayName;
+        var actorEmail = request.ActorEmail;
+        if (request.ActorUserId is int actorUserId &&
+            string.IsNullOrWhiteSpace(actorDisplayName))
+        {
+            var actor = await _db.Users
+                .AsNoTracking()
+                .Where(u => u.Id == actorUserId)
+                .Select(u => new { u.DisplayName, u.Email })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (actor is not null)
+            {
+                actorDisplayName = actor.DisplayName;
+                actorEmail ??= actor.Email;
+            }
+        }
+
+        var detailsJson = AuditDetailsSanitizer.Sanitize(request.DetailsJson);
+
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             var last = await _db.AuditLogEntries
@@ -51,13 +72,13 @@ public class AuditWriter : IAuditWriter
                 PreviousHash = previousHash,
                 EventType = request.EventType,
                 ActorUserId = request.ActorUserId,
-                ActorDisplayName = request.ActorDisplayName,
-                ActorEmail = request.ActorEmail,
+                ActorDisplayName = actorDisplayName,
+                ActorEmail = actorEmail,
                 DocumentId = request.DocumentId,
                 EntityType = request.EntityType,
                 EntityId = request.EntityId,
                 Action = request.Action,
-                DetailsJson = request.DetailsJson,
+                DetailsJson = detailsJson,
                 IpAddress = ip,
                 ClientType = clientType,
                 CreatedAtUtc = now

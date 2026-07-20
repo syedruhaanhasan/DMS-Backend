@@ -16,19 +16,22 @@ public class WorkflowEngineService
     private readonly IClock _clock;
     private readonly INotificationDispatcher _notifications;
     private readonly IAuditWriter _auditWriter;
+    private readonly IDocumentSearchIndexer _searchIndexer;
 
     public WorkflowEngineService(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         IClock clock,
         INotificationDispatcher notifications,
-        IAuditWriter auditWriter)
+        IAuditWriter auditWriter,
+        IDocumentSearchIndexer searchIndexer)
     {
         _db = db;
         _currentUser = currentUser;
         _clock = clock;
         _notifications = notifications;
         _auditWriter = auditWriter;
+        _searchIndexer = searchIndexer;
     }
 
     public Task<DocumentDto> ApproveAsync(int stepId, WorkflowActionRequest request, CancellationToken cancellationToken = default)
@@ -171,6 +174,19 @@ public class WorkflowEngineService
         catch
         {
             // Approval must not fail because audit append raced on SequenceNumber.
+        }
+
+        if (actionType is WorkflowActionType.Reject ||
+            document.Status is DocumentStatus.ReadyForFinalization)
+        {
+            try
+            {
+                await _searchIndexer.IndexDocumentAsync(document.Id, cancellationToken);
+            }
+            catch
+            {
+                // Repository/search can catch up later; the workflow action already succeeded.
+            }
         }
 
         return await LoadDocumentDtoAsync(document.Id, cancellationToken);
@@ -348,7 +364,9 @@ public class WorkflowEngineService
                 r.RecipientName,
                 r.RecipientEmail,
                 r.ReviewerUserId is int ru ? IdParsing.ToApi(ru) : null,
-                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null)).ToList(),
+                r.AddedByUserId is int ab ? IdParsing.ToApi(ab) : null,
+                r.ReviewedAtUtc,
+                r.ReviewComment)).ToList(),
             document.WorkflowSteps
                 .OrderBy(s => s.StepOrder)
                 .Select(s => new WorkflowStepDto(

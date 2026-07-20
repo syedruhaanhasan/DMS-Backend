@@ -4955,19 +4955,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget": {}
+    "C:\\Users\\user\\.nuget\\packages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
+      "projectUniqueName": "d:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
       "projectName": "WDAS.Api",
-      "projectPath": "D:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
-      "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget",
-      "outputPath": "D:\\document management\\backend\\src\\WDAS.Api\\obj\\",
+      "projectPath": "d:\\document management\\backend\\src\\WDAS.Api\\WDAS.Api.csproj",
+      "packagesPath": "C:\\Users\\user\\.nuget\\packages",
+      "outputPath": "d:\\document management\\backend\\src\\WDAS.Api\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "D:\\document management\\backend\\NuGet.Config",
+        "d:\\document management\\backend\\NuGet.Config",
         "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
@@ -4981,11 +4981,11 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj": {
-              "projectPath": "D:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj"
+            "d:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj": {
+              "projectPath": "d:\\document management\\backend\\src\\WDAS.Application\\WDAS.Application.csproj"
             },
-            "D:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj": {
-              "projectPath": "D:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj"
+            "d:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj": {
+              "projectPath": "d:\\document management\\backend\\src\\WDAS.Infrastructure\\WDAS.Infrastructure.csproj"
             }
           }
         }

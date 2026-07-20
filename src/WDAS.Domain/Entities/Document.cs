@@ -23,6 +23,8 @@ public class Document : Entity
     public string? SubmitIdempotencyKey { get; set; }
     public DateTime? SubmittedAtUtc { get; set; }
     public string? AdHocApproverUserIdsJson { get; set; }
+    /// <summary>Creator-selected reviewer user ids (JSON int array). Gates approval until review completes.</summary>
+    public string? CreatorReviewerUserIdsJson { get; set; }
     public string? CancellationReason { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
     public string? ArchiveDocumentId { get; set; }

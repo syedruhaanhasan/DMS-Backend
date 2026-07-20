@@ -34,6 +34,7 @@ public class DashboardService
             .Include(s => s.Document)
                 .ThenInclude(d => d.Workflow)
             .Where(s => s.Status == WorkflowStepStatus.Active &&
+                        s.Document.Status == DocumentStatus.InApproval &&
                         (s.ApproverUserId == userId || (s.ApproverUserId.HasValue && delegatedApproverIds.Contains(s.ApproverUserId.Value))))
             .ToListAsync(cancellationToken);
 
@@ -81,7 +82,11 @@ public class DashboardService
             .AsNoTracking()
             .Include(d => d.Workflow)
             .Include(d => d.WorkflowSteps)
-            .Where(d => d.Status != DocumentStatus.Draft && d.Recipients.Any(r => r.ReviewerUserId == userId))
+            .Where(d => d.Status == DocumentStatus.PendingReviewerReview &&
+                        _db.DocumentRecipients.Any(r =>
+                            r.DocumentId == d.Id &&
+                            r.ReviewerUserId == userId &&
+                            r.ReviewedAtUtc == null))
             .OrderByDescending(d => d.UpdatedAtUtc ?? d.CreatedAtUtc)
             .Take(100)
             .ToListAsync(cancellationToken);

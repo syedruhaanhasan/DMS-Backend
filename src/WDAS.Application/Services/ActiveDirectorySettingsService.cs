@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WDAS.Application;
 using WDAS.Application.Abstractions;
+using WDAS.Application.Audit;
 using WDAS.Application.Models;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
@@ -54,6 +55,11 @@ public class ActiveDirectorySettingsService
 
         var now = _clock.UtcNow;
         var settings = await _db.ActiveDirectorySettings.FirstOrDefaultAsync(cancellationToken);
+        var oldEnabled = settings?.Enabled ?? false;
+        var oldDomainName = settings?.DomainName ?? string.Empty;
+        var oldPort = settings?.Port ?? 389;
+        var oldUseSsl = settings?.UseSsl ?? false;
+
         if (settings is null)
         {
             settings = new ActiveDirectorySetting { CreatedAtUtc = now, Port = 389 };
@@ -98,7 +104,13 @@ public class ActiveDirectorySettingsService
             AuditEventType.Update,
             "Active Directory settings updated",
             ActorUserId: _currentUser.UserId,
-            DetailsJson: JsonSerializer.Serialize(new { settings.Enabled, settings.DomainName, settings.Port, settings.UseSsl })),
+            EntityType: "ActiveDirectorySettings",
+            DetailsJson: AuditDetailsBuilder.Create()
+                .Track("Enabled", oldEnabled, settings.Enabled)
+                .Track("Domain name", oldDomainName, settings.DomainName)
+                .Track("Port", oldPort, settings.Port)
+                .Track("Use SSL", oldUseSsl, settings.UseSsl)
+                .ToJson()),
             cancellationToken);
 
         return Map(settings);

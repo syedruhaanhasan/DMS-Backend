@@ -76,10 +76,20 @@ public class AttachmentPreviewController : ControllerBase
 public class RepositoryController : ControllerBase
 {
     private readonly FinalizationService _finalizationService;
+    private readonly SearchService _searchService;
 
-    public RepositoryController(FinalizationService finalizationService)
+    public RepositoryController(FinalizationService finalizationService, SearchService searchService)
     {
         _finalizationService = finalizationService;
+        _searchService = searchService;
+    }
+
+    [HttpGet("documents")]
+    public async Task<ActionResult<SearchResultDto>> ListDocuments(
+        [FromQuery] SearchRequest request,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await _searchService.SearchAsync(request with { RepositoryOnly = true, Take = Math.Max(request.Take, 100) }, cancellationToken));
     }
 
     [HttpGet("{documentId}")]

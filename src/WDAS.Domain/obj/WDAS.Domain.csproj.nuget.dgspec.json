@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj": {}
+    "d:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj": {}
   },
   "projects": {
-    "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj": {
+    "d:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
+        "projectUniqueName": "d:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
         "projectName": "WDAS.Domain",
-        "projectPath": "D:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
-        "packagesPath": "C:\\Users\\user\\AppData\\Local\\Temp\\cursor-sandbox-cache\\85e5e1dacb757a21fe92cf896cb15baf\\nuget",
-        "outputPath": "D:\\document management\\backend\\src\\WDAS.Domain\\obj\\",
+        "projectPath": "d:\\document management\\backend\\src\\WDAS.Domain\\WDAS.Domain.csproj",
+        "packagesPath": "C:\\Users\\user\\.nuget\\packages",
+        "outputPath": "d:\\document management\\backend\\src\\WDAS.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "D:\\document management\\backend\\NuGet.Config",
+          "d:\\document management\\backend\\NuGet.Config",
           "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [

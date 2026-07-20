@@ -386,6 +386,9 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<string>("AdHocApproverUserIdsJson")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatorReviewerUserIdsJson")
+                        .HasColumnType("text");
+
                     b.Property<decimal?>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -490,6 +493,9 @@ namespace WDAS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("AddedByUserId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("DocumentId")
                         .HasColumnType("integer");
 
@@ -500,12 +506,26 @@ namespace WDAS.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("ReviewerUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewComment")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ReturnWorkflowStepId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("ReviewerUserId");
 
                     b.ToTable("DocumentRecipients");
                 });

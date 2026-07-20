@@ -152,6 +152,8 @@ public class AttachmentService
             .Include(a => a.Document)
                 .ThenInclude(d => d.WorkflowSteps)
                     .ThenInclude(s => s.Actions)
+            .Include(a => a.Document)
+                .ThenInclude(d => d.Recipients)
             .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken)
             ?? throw new DomainException("Attachment not found.");
 
@@ -228,7 +230,10 @@ public class AttachmentService
             s.ApproverUserId == userId ||
             s.Actions.Any(a => a.ActorUserId == userId));
 
-        if (!canView && document.Status != DocumentStatus.Draft)
+        var isReviewer = document.Recipients.Any(r => r.ReviewerUserId == userId) &&
+            document.Status != DocumentStatus.Draft;
+
+        if (!canView && !isReviewer && document.Status != DocumentStatus.Draft)
         {
             throw new DomainException("You are not authorized to view attachments for this document.");
         }
@@ -250,6 +255,7 @@ public class AttachmentService
     private async Task<Document> LoadDocumentAsync(int documentId, CancellationToken cancellationToken)
     {
         return await _db.Documents
+            .Include(d => d.Recipients)
             .Include(d => d.WorkflowSteps)
                 .ThenInclude(s => s.Actions)
             .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken)

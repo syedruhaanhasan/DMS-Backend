@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
+using WDAS.Application;
+using WDAS.Application.Abstractions;
 using WDAS.Domain.Entities;
 using WDAS.Domain.Enums;
 using WDAS.Infrastructure.Identity;
@@ -17,10 +20,15 @@ public static class DatabaseSeeder
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<WdasDbContext>();
         var configuration = scope.ServiceProvider.GetService<IConfiguration>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         try
         {
             await db.Database.MigrateAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState is "42P07")
+        {
+            // Dev DB may already contain tables while migration history is out of sync.
         }
         catch (Exception ex) when (!db.Database.IsNpgsql())
         {
@@ -39,6 +47,7 @@ public static class DatabaseSeeder
             await EnsureActiveDirectorySettingsTableAsync(db);
             await EnsureRevokedTokensTableAsync(db);
             await EnsureDocumentRecipientReviewerColumnsAsync(db);
+            await EnsureDocumentCreatorReviewerUserIdsColumnAsync(db);
             await EnsureUserTypesTableAsync(db);
             await AddNullableIntColumnAsync(db, "Users", "UserTypeId");
             await AddNullableTimestampColumnAsync(db, "WorkflowSteps", "SeenByApproverAtUtc");
@@ -53,10 +62,66 @@ public static class DatabaseSeeder
         if (await db.Users.AnyAsync())
         {
             await EnsureDevUsersAsync(db);
+            await EnsureLocalSuperAdminAsync(db, passwordHasher);
             return;
         }
 
         await SeedFullDatasetAsync(db);
+        await EnsureLocalSuperAdminAsync(db, passwordHasher);
+    }
+
+    /// <summary>
+    /// Ensures a local (password-based) Super Admin account exists for VeriFlow login.
+    /// </summary>
+    private static async Task EnsureLocalSuperAdminAsync(WdasDbContext db, IPasswordHasher passwordHasher)
+    {
+        const string username = "veriflow.admin";
+        const string password = "VeriFlow@Admin2026!";
+
+        if (await db.Users.AnyAsync(u => u.UserPrincipalName == username))
+        {
+            return;
+        }
+
+        var department = await db.Departments.OrderBy(d => d.Id).FirstOrDefaultAsync();
+        if (department is null)
+        {
+            return;
+        }
+
+        var superAdminRole = await db.SecurityRoles.FirstOrDefaultAsync(r => r.Code == RoleNames.SuperAdmin);
+        if (superAdminRole is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var user = new User
+        {
+            AdObjectId = "local-veriflow-admin",
+            UserPrincipalName = username,
+            DisplayName = "VeriFlow Super Admin",
+            Email = "veriflow.admin@veriflow.local",
+            Title = "Super Administrator",
+            DepartmentId = department.Id,
+            PasswordHash = passwordHasher.Hash(password),
+            IsEnabledInAd = true,
+            IsDisabledInApp = false,
+            CreatedAtUtc = now,
+            LastSyncedAtUtc = now,
+        };
+
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        db.RoleMappings.Add(new RoleMapping
+        {
+            UserId = user.Id,
+            RoleId = superAdminRole.Id,
+            DepartmentId = null,
+            CreatedAtUtc = now,
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureDevUsersAsync(WdasDbContext db)
@@ -423,6 +488,35 @@ public static class DatabaseSeeder
     {
         await AddNullableIntColumnAsync(db, "DocumentRecipients", "ReviewerUserId");
         await AddNullableIntColumnAsync(db, "DocumentRecipients", "AddedByUserId");
+        await AddNullableTimestampColumnAsync(db, "DocumentRecipients", "ReviewedAtUtc");
+        await AddNullableTextColumnAsync(db, "DocumentRecipients", "ReviewComment");
+        await AddNullableIntColumnAsync(db, "DocumentRecipients", "ReturnWorkflowStepId");
+    }
+
+    private static async Task EnsureDocumentCreatorReviewerUserIdsColumnAsync(WdasDbContext db)
+    {
+        await AddNullableTextColumnAsync(db, "Documents", "CreatorReviewerUserIdsJson");
+    }
+
+    private static async Task AddNullableTextColumnAsync(WdasDbContext db, string table, string column)
+    {
+        var pgSql = $"ALTER TABLE \"{table}\" ADD COLUMN IF NOT EXISTS \"{column}\" text;";
+        var sqliteSql = $"ALTER TABLE {table} ADD COLUMN {column} TEXT";
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(pgSql);
+        }
+        catch
+        {
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync(sqliteSql);
+            }
+            catch
+            {
+                /* column may already exist */
+            }
+        }
     }
 
     private static async Task AddNullableIntColumnAsync(WdasDbContext db, string table, string column)

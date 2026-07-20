@@ -326,6 +326,57 @@ public class WorkflowService
             .ToList();
     }
 
+    /// <summary>
+    /// Returns the active workflow's approval routing for document creators (makers/approvers),
+    /// without requiring configuration permissions.
+    /// </summary>
+    public async Task<WorkflowRoutingDto> GetWorkflowRoutingAsync(int workflowId, CancellationToken cancellationToken = default)
+    {
+        var workflow = await _db.Workflows
+            .AsNoTracking()
+            .FirstOrDefaultAsync(w => w.Id == workflowId, cancellationToken)
+            ?? throw new DomainException("Workflow not found.");
+
+        if (!workflow.IsActive)
+        {
+            throw new DomainException("This workflow is not active.");
+        }
+
+        EnsureCanViewWorkflowRouting(workflow);
+
+        var version = await LoadActiveWorkflowVersionAsync(workflowId, cancellationToken, includeTiers: true, includeGroups: true);
+
+        var groups = version.ApproverGroups
+            .OrderBy(g => g.SequenceOrder)
+            .Select(MapGroup)
+            .ToList();
+        var tiers = version.MatrixTiers
+            .OrderBy(t => t.SequenceOrder)
+            .Select(MapMatrixTier)
+            .ToList();
+
+        var approverUserIds = groups
+            .SelectMany(g => g.MemberUserIds)
+            .Distinct()
+            .ToList();
+
+        if (approverUserIds.Count == 0)
+        {
+            approverUserIds = tiers
+                .SelectMany(t => t.ApproverUserIds)
+                .Distinct()
+                .ToList();
+        }
+
+        return new WorkflowRoutingDto(
+            IdParsing.ToApi(workflowId),
+            version.ApprovalMode,
+            version.ApprovalSequence,
+            approverUserIds,
+            groups,
+            tiers);
+    }
+
     public async Task<IReadOnlyList<ApproverGroupDto>> SaveApproverGroupsAsync(int workflowId, SaveApproverGroupsRequest request, CancellationToken cancellationToken = default)
     {
         var version = await GetEditableVersionAsync(workflowId, cancellationToken, includeGroups: true);
@@ -390,15 +441,24 @@ public class WorkflowService
         bool includeTiers = false,
         bool includeGroups = false)
     {
-        var workflow = await _db.Workflows
+        _ = await _db.Workflows
             .AsNoTracking()
             .Where(w => w.Id == workflowId)
-            .Select(w => new { w.DepartmentId })
+            .Select(w => new { w.Id })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new DomainException("Workflow not found.");
 
         EnsureSuperAdmin();
 
+        return await LoadActiveWorkflowVersionAsync(workflowId, cancellationToken, includeTiers, includeGroups);
+    }
+
+    private async Task<WorkflowVersion> LoadActiveWorkflowVersionAsync(
+        int workflowId,
+        CancellationToken cancellationToken,
+        bool includeTiers = false,
+        bool includeGroups = false)
+    {
         // Prefer Active so published approvers are what the editor shows/loads after publish.
         var versionId = await _db.WorkflowVersions
             .Where(v => v.WorkflowId == workflowId && v.State == WorkflowVersionState.Active)
@@ -437,6 +497,27 @@ public class WorkflowService
         }
 
         return await query.FirstAsync(cancellationToken);
+    }
+
+    private void EnsureCanViewWorkflowRouting(Workflow workflow)
+    {
+        if (_currentUser.IsInRole(RoleNames.SuperAdmin) ||
+            _currentUser.HasPermission(PermissionCatalog.Config.Workflows))
+        {
+            return;
+        }
+
+        if (!_currentUser.HasPermission(PermissionCatalog.Nav.DocumentsNew) &&
+            !_currentUser.HasPermission(PermissionCatalog.Nav.Documents))
+        {
+            throw new DomainException("You do not have permission to view workflow routing.");
+        }
+
+        var userDeptId = _currentUser.DepartmentId;
+        if (!userDeptId.HasValue || userDeptId.Value != workflow.DepartmentId)
+        {
+            throw new DomainException("This workflow is not available for your department.");
+        }
     }
 
     public async Task DeleteWorkflowAsync(int workflowId, CancellationToken cancellationToken = default)
